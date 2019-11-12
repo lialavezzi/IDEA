@@ -19,19 +19,19 @@
  * following line will be lost next time ROMEBuilder is executed.             */
 /////////////////////////////////////----///////////////////////////////////////
 
-#include <set>
 #include "util/Geometry.h"
 #include "generated/GMCWindow.h"
 #include "generated/GMCAnalyzer.h"
+#include "generated/GMCMPXHit.h"
 #include "tabs/GMCTEventDisplay.h"
 #include "TEllipse.h"
 #include "TF1.h"
 #include "TMultiGraph.h"
 #include "TPave.h"
+#include "TVirtualPad.h"
 #include "TPavesText.h"
 #include "TLatex.h"         
-
-#define D(t) ((-29.95 + sqrt(29.95*29.95 + 4.*3.087*(t)))/(2.*3.087))
+#include "TMath.h"         
 
 // uncomment if you want to include headers of all folders
 //#include "GMCAllFolders.h"
@@ -46,7 +46,7 @@ void GMCTEventDisplay::CellClicked(){}
 void GMCTEventDisplay::Init()
 {
   el = 0;
-  iso = 0;
+  bx = 0;
   li = 0;
   nl = 0;
 
@@ -56,29 +56,42 @@ void GMCTEventDisplay::Init()
   grw->SetMarkerColor(kBlack);
   grw->SetMarkerStyle(20);
 
-  TGVerticalFrame *fVerticalFrame = new TGVerticalFrame(this,1600,700,kVerticalFrame);
-  TGVerticalFrame *fTXTFrame = new TGVerticalFrame(this,800,700,kVerticalFrame);
+  TGVerticalFrame *fVerticalFrame = new TGVerticalFrame(this,42*40,17*40,kVerticalFrame);
+  TGVerticalFrame *fTXTFrame = new TGVerticalFrame(this,800,500,kVerticalFrame);
 
-  fCanvas = new TRootEmbeddedCanvas("fCanvas",this,840,300);
+  fCanvas = new TRootEmbeddedCanvas("fCanvas",this,42*20,17*20);
   Int_t wfCanvas = fCanvas->GetCanvasWindowId();
-  TCanvas *c123 = new TCanvas("c123", 380, 300,wfCanvas);   
+  TCanvas *c123 = new TCanvas("c123", 380, 500,wfCanvas);   
+  c123->Divide(3,1);
+  ((TVirtualPad*)c123->GetPad(1))->SetPad(0.01,0.01,0.15,0.49);
+  ((TVirtualPad*)c123->GetPad(1))->SetTopMargin(0.15);
+  ((TVirtualPad*)c123->GetPad(1))->SetBottomMargin(0.15);
+  ((TVirtualPad*)c123->GetPad(2))->SetPad(0.01,0.51,0.15,0.99);
+  ((TVirtualPad*)c123->GetPad(2))->SetTopMargin(0.15);
+  ((TVirtualPad*)c123->GetPad(2))->SetBottomMargin(0.15);
+  ((TVirtualPad*)c123->GetPad(3))->SetPad(0.16,0.01,0.99,0.99);
+  ((TVirtualPad*)c123->GetPad(3))->SetLeftMargin(0.02);
+  ((TVirtualPad*)c123->GetPad(3))->SetRightMargin(0.02);
+  ((TVirtualPad*)c123->GetPad(3))->SetTopMargin(0.15);
+  ((TVirtualPad*)c123->GetPad(3))->SetBottomMargin(0.15);
   fCanvas->AdoptCanvas(c123);
   fVerticalFrame->AddFrame(fCanvas, new TGLayoutHints(kLHintsLeft | kLHintsTop,2,2,2,2));
   
-  fCanvas2 = new TRootEmbeddedCanvas("fCanvas2",this,840,300);
+  fCanvas2 = new TRootEmbeddedCanvas("fCanvas2",this,42*20,17*20);
   Int_t wfCanvas2 = fCanvas2->GetCanvasWindowId();
-  TCanvas *c1234 = new TCanvas("c1234", 380, 300,wfCanvas2);   
+  TCanvas *c1234 = new TCanvas("c1234", 380, 500,wfCanvas2);   
   fCanvas2->AdoptCanvas(c1234);
   fVerticalFrame->AddFrame(fCanvas2, new TGLayoutHints(kLHintsLeft | kLHintsTop,2,2,2,2));
   AddFrame(fVerticalFrame, new TGLayoutHints(kLHintsRight | kLHintsTop,2,2,2,2));
-  fCanvas3 = new TRootEmbeddedCanvas("fCanvas3",this,320,605);
+  fCanvas3 = new TRootEmbeddedCanvas("fCanvas3",this,42*7,17*40);
   Int_t wfCanvas3 = fCanvas3->GetCanvasWindowId();
-  TCanvas *c12345 = new TCanvas("c12345", 230, 100,wfCanvas3);   
+  TCanvas *c12345 = new TCanvas("c12345", 200, 100,wfCanvas3);   
   fCanvas3->AdoptCanvas(c12345);
   fTXTFrame->AddFrame(fCanvas3, new TGLayoutHints(kLHintsLeft && kLHintsRight,42*20+7,2,2,4));
   fVerticalFrame->AddFrame(fTXTFrame, new TGLayoutHints(kLHintsCenterX,2,2,2,2));
 
-  htmp=new TH2F("htmp","",42*10,-42,42,16*10,-16,16); 
+  htmp = new TH2F("htmp","",50*10,-45,45,16*10,-12,16); 
+  hpix = new TH2F("hpix","",100,-8.5,8.5,100,-8.5,8.5);
 }
 
 //______________________________________________________________________________
@@ -90,10 +103,8 @@ void GMCTEventDisplay::EndInit()
 void GMCTEventDisplay::EventHandler()
 {
  
-  fCanvas->GetCanvas()->cd();    
-  grMC->Set(0);
-
-  Geometry *Geom = Geometry::GetInstance();
+  //  fCanvas->GetCanvas()->cd(2);    
+  //  grMC->Set(0);
 
   DrawingGeom(); 
   Drawing();   
@@ -106,7 +117,7 @@ void GMCTEventDisplay::EventHandler()
   */
  
   
-  fCanvas->GetCanvas()->Update();
+  //  fCanvas->GetCanvas()->Update();
 
   fCanvas2->GetCanvas()->cd();
   if(gAnalyzer->GetEvent()->GetOscWaveformSize()){
@@ -140,55 +151,55 @@ void GMCTEventDisplay::EventHandler()
    y = 0.95; x1 = 0.05;
    l.DrawLatex(x1, y, "Gas Monitoring Chamber's CHANNEL"); 
 
-   l.DrawLatex(x1, y1, "8"); 
+   l.DrawLatex(x1, y1, "1"); 
 
-   l.DrawLatex(x1, y3, "16"); 
+   l.DrawLatex(x1, y3, "9"); 
  
-   l.DrawLatex(x2, y2, "7");       
+   l.DrawLatex(x2, y2, "2");       
   
-   l.DrawLatex(x2, y4, "15");      
+   l.DrawLatex(x2, y4, "10");      
  
-   l.DrawLatex(x3, y1, "6");         
+   l.DrawLatex(x3, y1, "3");         
  
-   l.DrawLatex(x3, y3, "14");         
+   l.DrawLatex(x3, y3, "11");         
    
-   l.DrawLatex(x4, y2,  "5");      
+   l.DrawLatex(x4, y2,  "4");      
  
-   l.DrawLatex(x4, y4, "13");               
+   l.DrawLatex(x4, y4, "12");               
  
-   l.DrawLatex(x5, y1, "4");         
+   l.DrawLatex(x5, y3, "13");         
 
-   l.DrawLatex(x5, y3, "12");         
+   l.DrawLatex(x5, y1, "5");         
    
-   l.DrawLatex(x6, y2, "3"); 
+   l.DrawLatex(x6, y2, "6"); 
  
-   l.DrawLatex(x6, y4, "11"); 
+   l.DrawLatex(x6, y4, "14"); 
     
-   l.DrawLatex(x7, y1, "2");         
+   l.DrawLatex(x7, y1, "7");         
    
-   l.DrawLatex(x7, y3, "10");         
+   l.DrawLatex(x7, y3, "15");         
  
-   l.DrawLatex(x8, y2, "1");      
+   l.DrawLatex(x8, y2, "8");      
  
-   l.DrawLatex(x8, y4, "9");      
+   l.DrawLatex(x8, y4, "16");      
 
 
    y = 0.6; x1 = 0.2;               y = 0.6; x2 = 0.4; x3 = 0.6;
-   l.DrawLatex(x1, y, "GMC");       l.DrawLatex(x2, y, "TDC");    l.DrawLatex(x3, y,"TIME[ns]");                 
+   l.DrawLatex(x1, y, "TDC");       l.DrawLatex(x2, y, "GMC");    l.DrawLatex(x3, y,"TIME[ns]");                 
    char channelGMC[50];
       
    Double_t time_meas[17];  
 
    time_meas[0] = gAnalyzer->GetEvent()->GetTDCRefTime();
 
-   for(int ihit=0; ihit<gAnalyzer->GetHitSize();ihit++){
-     time_meas[gAnalyzer->GetHitAt(ihit)->Gettube_nr()]= gAnalyzer->GetHitAt(ihit)->Gett_meas();
+   for(int ihit=0; ihit<gAnalyzer->GetDCHHitSize();ihit++){
+     time_meas[gAnalyzer->GetDCHHitAt(ihit)->GetfNrOfTube()]= gAnalyzer->GetDCHHitAt(ihit)->GetfToF();
    }
 
 
    for(int i=0;i<17;i++){
 
-     y = 0.55-0.03*i; x1 = 0.2;     y = 0.55-0.03*i; x2 = 0.4;             y = 0.55-0.03*i; x3 = 0.8;
+     y = 0.55-0.02*i; x1 = 0.2;     y = 0.55-0.02*i; x2 = 0.4;             y = 0.55-0.02*i; x3 = 0.8;
 
      l.SetTextAlign(32);
      if(time_meas[i]<999999){
@@ -196,23 +207,8 @@ void GMCTEventDisplay::EventHandler()
      
      l.SetTextAlign(12);
      if(i==0){
-       sprintf(channelGMC,"%d",i);
-       l.DrawLatex(x1, y,"TRIG");       l.DrawLatex(x2, y,Form("%d",Geom->GetTDCChannel(0)));
-     }
-     else if(i==gAnalyzer->GetGSP()->Getcentral_tube()){
-       sprintf(channelGMC,"%d",i);
-       l.DrawLatex(x1, y,channelGMC);       l.DrawLatex(x2, y,"OSC");
-     }
-     else{
-       sprintf(channelGMC,"%d",i);
-       l.DrawLatex(x1, y,channelGMC);       l.DrawLatex(x2, y,Form("%d",Geom->GetTDCChannel(i)));
-     }
-
-     /*
-     l.SetTextAlign(12);
-     if(i==0){
-       sprintf(channelGMC,"%d",i);
-       l.DrawLatex(x1, y,"TRIG");       l.DrawLatex(x2, y,channelGMC);
+       sprintf(channelGMC,"%d",i); 
+       l.DrawLatex(x1, y,channelGMC);       l.DrawLatex(x2, y,"TRIG");
      }
     
      else if(i<gAnalyzer->GetGSP()->Getcentral_tube() && i>0){
@@ -229,7 +225,6 @@ void GMCTEventDisplay::EventHandler()
        l.DrawLatex(x1, y,channelGMC);
        sprintf(channelGMC,"%d",i+1); 
        l.DrawLatex(x2, y, channelGMC);      }
-     */
    }
    
    fCanvas3->GetCanvas()->Update();   
@@ -263,6 +258,10 @@ void GMCTEventDisplay::DrawingGeom()
   
   Geometry *Geom = Geometry::GetInstance();
 
+
+  fCanvas->GetCanvas()->cd(3);    
+  grMC->Set(0);
+
   htmp->SetStats(0);
   htmp->Draw("Axis");
   
@@ -279,22 +278,7 @@ void GMCTEventDisplay::DrawingGeom()
   for(Int_t i=0;i<17;i++)
     el[i] = new TEllipse(0,0,1,1);
 
-  if(iso){
-    for(Int_t i=0;i<17;i++){
-      delete iso[i];
-    }
-    delete [] iso;
-    iso=0;
-  }
-  
-  iso = new TEllipse*[17];
-  
-  for(Int_t i=0;i<17;i++){
-    iso[i] = new TEllipse(0,0,1,1);
-    iso[i]->SetFillStyle(0);
-  }
-
-  for(Int_t itube=1; itube < 17; itube++){ 
+  for(Int_t itube=0; itube < 17; itube++){ 
     
     el[itube]->SetFillColor(19);   
 
@@ -306,50 +290,129 @@ void GMCTEventDisplay::DrawingGeom()
     
   }
 
+  fCanvas->GetCanvas()->Update();
+
+
+  if(bx){
+    for(Int_t i=0;i<2;i++){
+      delete bx[i];
+    }
+    delete [] bx;
+    bx=0;
+  }
+  
+  bx = new TBox*[10];
+
+  for(Int_t i=0;i<10;i++)
+    bx[i] = new TBox(0.,0.,Geom->GetPixelModuleLength(),Geom->GetPixelModuleLength());
+
+  //hypotesys the chamber is 10cm width
+    
+  fCanvas->GetCanvas()->cd(1);    
+  hpix->SetStats(0);
+  hpix->Draw("Axis");
+  hpix->SetTitle("Side Down");
+  hpix->SetTitleSize(0.06);  
+  hpix->SetTitleOffset(0.5);    
+  ((TAxis*)hpix->GetXaxis())->SetLabelSize(0.08);
+  ((TAxis*)hpix->GetXaxis())->SetLabelOffset(0.015);
+  ((TAxis*)hpix->GetYaxis())->SetLabelSize(0.08);
+  ((TAxis*)hpix->GetYaxis())->SetLabelOffset(0.015);
+    
+  bx[0]->SetFillColor(19);   
+
+  bx[0]->DrawBox(-0.5*Geom->GetPixelModuleLength(),-0.5*Geom->GetPixelModuleLength(),0.5*Geom->GetPixelModuleLength(),0.5*Geom->GetPixelModuleLength());
+  fCanvas->GetCanvas()->Update();
+
+  fCanvas->GetCanvas()->cd(2);    
+  hpix->SetStats(0);
+  hpix->Draw("Axis");
+  hpix->SetTitle("Side Up");
+  ((TAxis*)hpix->GetXaxis())->SetLabelSize(0.08);
+  ((TAxis*)hpix->GetXaxis())->SetLabelOffset(0.015);
+  ((TAxis*)hpix->GetYaxis())->SetLabelSize(0.08);
+  ((TAxis*)hpix->GetYaxis())->SetLabelOffset(0.015);
+
+  bx[1]->SetFillColor(19);   
+
+  bx[1]->DrawBox(-0.5*Geom->GetPixelModuleLength(),-0.5*Geom->GetPixelModuleLength(),0.5*Geom->GetPixelModuleLength(),0.5*Geom->GetPixelModuleLength());
+  fCanvas->GetCanvas()->Update();
+
 }
 
 void GMCTEventDisplay::Drawing(){
 
-  Int_t nhits = gAnalyzer->GetHitSize();
-  
+
+  Int_t nhits = 0;
+  nhits = gAnalyzer->GetDCHHitSize();
+
+  cout<<"ho trovato  "<<nhits<<endl;
+
   TVector3 wire_pos;
 
   Geometry *Geom = Geometry::GetInstance();
 
-  set<Int_t> done;
+  if (gAnalyzer->GetMPXHitSize() > 0) {
+
+    fCanvas->GetCanvas()->cd(2);    
+    for (int ipx=0;ipx<gAnalyzer->GetMPXHitSize();ipx++) {
+      if (gAnalyzer->GetMPXHitAt(ipx)->GetfNrMPX() == 0) {
+	
+	bx[2+ipx]->SetFillColor(kMagenta-7);   
+	bx[2+ipx]->DrawBox(gAnalyzer->GetMPXHitAt(ipx)->GetfxMC()-0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfyMC()-0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfxMC()+0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfyMC()+0.5);
+	
+      }   
+    }  
+    fCanvas->GetCanvas()->Update();    
+
+    fCanvas->GetCanvas()->cd(1);    
+    for (int ipx=0;ipx<gAnalyzer->GetMPXHitSize();ipx++) {
+      if (gAnalyzer->GetMPXHitAt(ipx)->GetfNrMPX() == 1) {
+
+	bx[2+ipx]->SetFillColor(kMagenta-7);   
+	bx[2+ipx]->DrawBox(gAnalyzer->GetMPXHitAt(ipx)->GetfxMC()-0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfyMC()-0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfxMC()+0.5,gAnalyzer->GetMPXHitAt(ipx)->GetfyMC()+0.5);	
+      }
+    }
+    fCanvas->GetCanvas()->Update();    
+
+  }
+ 
+  
+  fCanvas->GetCanvas()->cd(3);    
 
   for(Int_t ihit=0; ihit < nhits; ihit++){
     
-    if(gAnalyzer->GetMCHitSize()>1){
-      Double_t nclust=gAnalyzer->GetMCHitAt(ihit)->Getnclusters();
+    if(gAnalyzer->GetDCHHitSize()>1){
+      Double_t trkVec_l = gAnalyzer->GetDCHHitAt(ihit)->GetfxPCA() - gAnalyzer->GetDCHHitAt(ihit)->GetfEntranceX();
+      Double_t trkVec_m = gAnalyzer->GetDCHHitAt(ihit)->GetfyPCA() - gAnalyzer->GetDCHHitAt(ihit)->GetfEntranceY();
+      Double_t trkVec_n = gAnalyzer->GetDCHHitAt(ihit)->GetfzPCA() - gAnalyzer->GetDCHHitAt(ihit)->GetfEntranceZ();
+      Double_t trkNorm = TMath::Sqrt(TMath::Power(trkVec_l,2) + TMath::Power(trkVec_m,2) + TMath::Power(trkVec_n,2)); 
+
+      Double_t nclust=gAnalyzer->GetDCHHitAt(ihit)->GetfNrClusters();
       for(Int_t iclust=0;iclust<nclust;iclust++){
-	grMC->SetPoint(grMC->GetN(),gAnalyzer->GetMCHitAt(ihit)->GetclusterZAt(iclust),gAnalyzer->GetMCHitAt(ihit)->GetclusterYAt(iclust));
+	Double_t posz = gAnalyzer->GetDCHHitAt(ihit)->GetfEntranceZ() + trkVec_n*gAnalyzer->GetDCHHitAt(ihit)->GetfClsPathPosAt(iclust)/trkNorm;
+	Double_t posy = gAnalyzer->GetDCHHitAt(ihit)->GetfEntranceY() + trkVec_m*gAnalyzer->GetDCHHitAt(ihit)->GetfClsPathPosAt(iclust)/trkNorm;
+	grMC->SetPoint(grMC->GetN(),posz,posy);
       }
     }
 
-    Int_t tube_nr=gAnalyzer->GetHitAt(ihit)->Gettube_nr();
+    Int_t tube_nr=gAnalyzer->GetDCHHitAt(ihit)->GetfNrOfTube();
     Double_t R = gAnalyzer->GetGSP()->Gettube_radius();
 
-    Double_t t_meas = gAnalyzer->GetHitAt(ihit)->Gett_meas();
-    Double_t d_drift = D(t_meas);
-
-    //cout << "DRAW " << tube_nr << "  " << done.count(tube_nr) << "  " << t_meas << "  " << d_drift << endl;
-
     wire_pos = Geom->Getwire_pos(tube_nr);
-    
-    //if(!done.count(tube_nr) && t_meas > -10 && t_meas < 250){
-    
+
     el[tube_nr]->SetFillColor(kMagenta-7);
     el[tube_nr]->DrawEllipse(wire_pos.Z(),wire_pos.Y(),R,R,0,360,0);
-    
-    iso[tube_nr]->DrawEllipse(wire_pos.Z(),wire_pos.Y(),d_drift,d_drift,0,360,0);
-    //done.insert(tube_nr);
-    //}
-    
+
   }
   
   grw->Draw("Psame");
-  if(grMC->GetN() > 0) grMC->Draw("Psame");
+  if(grMC->GetN() > 0) {
+    grMC->SetMarkerSize(3);
+    grMC->SetMarkerStyle(7);
+    grMC->SetMarkerColor(4);
+    grMC->Draw("Psame");
+  }
 
   if(li){
     for(Int_t i=0; i<nl; i++){
@@ -359,28 +422,30 @@ void GMCTEventDisplay::Drawing(){
     li=0;
   }
 
-  if(gAnalyzer->GetTrackSize()>0){
+  /********************************/
+  if(gAnalyzer->GetRecoTracksSize()>0){
 
-    li = new TLine*[gAnalyzer->GetTrackSize()];
-    nl = gAnalyzer->GetTrackSize();
+    li = new TLine*[gAnalyzer->GetRecoTracksSize()];
+    nl = gAnalyzer->GetRecoTracksSize();
 
-    for(Int_t itrk=0;itrk<gAnalyzer->GetTrackSize();itrk++){
+    for(Int_t itrk=0;itrk<gAnalyzer->GetRecoTracksSize();itrk++){
       
-      Double_t theta=gAnalyzer->GetTrackAt(itrk)->Gettheta_trk();
-      Double_t phi=gAnalyzer->GetTrackAt(itrk)->Getphi_trk();
+      Double_t theta=gAnalyzer->GetRecoTracksAt(itrk)->Gettheta();
+      Double_t phi=gAnalyzer->GetRecoTracksAt(itrk)->Getphi();
       
-      Double_t vx=sin(theta)*sin(phi);
-      Double_t vy=sin(theta)*cos(phi);
+      Double_t vx=sin(theta)*cos(phi);
+      Double_t vy=sin(theta)*sin(phi);
       Double_t vz=cos(theta);
       
-      Double_t xi=gAnalyzer->GetTrackAt(itrk)->Getx0_trk();
-      Double_t yi=gAnalyzer->GetTrackAt(itrk)->Gety0_trk();
-      Double_t zi=gAnalyzer->GetTrackAt(itrk)->Getz0_trk();
+      Double_t xi=gAnalyzer->GetRecoTracksAt(itrk)->Getx0();
+      Double_t yi=gAnalyzer->GetRecoTracksAt(itrk)->Gety0();
+      Double_t zi=gAnalyzer->GetRecoTracksAt(itrk)->Getz0();
       
       Double_t m=vy/vz;
       Double_t q=yi-m*zi;
       
       li[itrk] = new TLine(-40.,-40.*m+q, 40.,40.*m+q);
+      cout<<"draw "<<itrk<<" xyz "<<xi<<" "<<yi<<" "<<zi<<" vxyz "<<vx<<" "<<vy<<" "<<vz<<" ln "<<-40.*m+q<<" "<<40.*m+q<<endl;
       
       li[itrk]->Draw("same");
 
@@ -391,8 +456,11 @@ void GMCTEventDisplay::Drawing(){
   else {
     nl=0;
   }
+  /*****************************/
 
+  fCanvas->GetCanvas()->Update();
+    
   return;
-  
+
 }
 

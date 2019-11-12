@@ -5,7 +5,7 @@
 
 <Configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="">
   <ProgramConfiguration>
-    <ProgramMode>2</ProgramMode>
+    <ProgramMode>0</ProgramMode>
   </ProgramConfiguration>
 
   <MainConfiguration>
@@ -21,15 +21,15 @@
     </Offline>
 
     <Online>
-      <Host>local</Host>
+      <Host></Host>
       <Experiment>FIRB_DAQ</Experiment>
       <AnalyzerName>Analyzer</AnalyzerName>
       <MemoryBuffer>SYSTEM</MemoryBuffer>
     </Online>
 
     <Paths>
-      <InputFilePath>./data/midas/</InputFilePath>
-      <OutputFilePath>./data/analyzer/</OutputFilePath>
+      <InputFilePath>/media/MEG_BTF_2014/BTF2016/midas/</InputFilePath>
+      <OutputFilePath>./</OutputFilePath>
       <OutputFileOption>RECREATE</OutputFileOption>
       <MakeOutputDirectory>false</MakeOutputDirectory>
     </Paths>
@@ -43,7 +43,7 @@
         <ReportSummaryLineLength>2048</ReportSummaryLineLength>
         <ConfigCommentLevel>1</ConfigCommentLevel>
         <QuitMode>false</QuitMode>
-        <ShowSplashScreen>true</ShowSplashScreen>
+        <ShowSplashScreen>false</ShowSplashScreen>
         <GraphicalConfigEdit>false</GraphicalConfigEdit>
         <PreserveConfig>false</PreserveConfig>
       </Settings>
@@ -65,38 +65,121 @@
 
       <Trees>
         <Accumulate>false</Accumulate>
-        <MaxMemory>0</MaxMemory>
+        <MaxMemory>100000000</MaxMemory>
         <Tree>
-          <TreeName>DataTree</TreeName>
+          <TreeName>MCData</TreeName>
+          <Read>false</Read>
+          <Write>false</Write>
+          <Fill>false</Fill>
+          <CompressionLevel>1</CompressionLevel>
+          <CompressionAlgorithm>ZLIB</CompressionAlgorithm>
+          <AutoSaveSize>300000000</AutoSaveSize>
+          <AutoFlushSize>-30000000</AutoFlushSize>
+          <CacheSize>-1</CacheSize>
+          <MaxNumberOfEntries>100000000</MaxNumberOfEntries>
+          <TreeInputFileName></TreeInputFileName>
+          <TreeOutputFileName></TreeOutputFileName>
+          <SaveConfiguration>false</SaveConfiguration>
+          <Branch>
+            <BranchName>MCTracks</BranchName>
+            <Active>false</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>MCDCStep</BranchName>
+            <Active>false</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>MCPXStep</BranchName>
+            <Active>false</Active>
+            <Read>true</Read>
+          </Branch>
+        </Tree>
+
+        <Tree>
+          <TreeName>MCHits</TreeName>
+          <Read>false</Read>
+          <Write>false</Write>
+          <Fill>false</Fill>
+          <CompressionLevel>1</CompressionLevel>
+          <CompressionAlgorithm>ZLIB</CompressionAlgorithm>
+          <AutoSaveSize>300000000</AutoSaveSize>
+          <AutoFlushSize>-30000000</AutoFlushSize>
+          <CacheSize>-1</CacheSize>
+          <MaxNumberOfEntries>100000000</MaxNumberOfEntries>
+          <TreeInputFileName></TreeInputFileName>
+          <TreeOutputFileName></TreeOutputFileName>
+          <SaveConfiguration>false</SaveConfiguration>
+          <Branch>
+            <BranchName>MCTracks</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>MCDCStep</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>MCPXStep</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>DCHits</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>PXHits</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+          <Branch>
+            <BranchName>DCWaveforms</BranchName>
+            <Active>true</Active>
+            <Read>true</Read>
+          </Branch>
+        </Tree>
+
+        <Tree>
+          <TreeName>RawData</TreeName>
           <Read>false</Read>
           <Write>true</Write>
           <Fill>true</Fill>
-          <CompressionLevel>0</CompressionLevel>
+          <CompressionLevel>1</CompressionLevel>
           <CompressionAlgorithm>ZLIB</CompressionAlgorithm>
-          <AutoSaveSize>0</AutoSaveSize>
-          <AutoFlushSize>0</AutoFlushSize>
-          <CacheSize>0</CacheSize>
-          <MaxNumberOfEntries>0</MaxNumberOfEntries>
+          <AutoSaveSize>300000000</AutoSaveSize>
+          <AutoFlushSize>-30000000</AutoFlushSize>
+          <CacheSize>-1</CacheSize>
+          <MaxNumberOfEntries>100000000</MaxNumberOfEntries>
           <TreeInputFileName></TreeInputFileName>
           <TreeOutputFileName>DataTree#.root</TreeOutputFileName>
           <SaveConfiguration>false</SaveConfiguration>
           <Branch>
-            <BranchName>mctracks</BranchName>
+            <BranchName>EventData</BranchName>
             <Active>true</Active>
             <Read>true</Read>
           </Branch>
+        </Tree>
+
+        <Tree>
+          <TreeName>RecoData</TreeName>
+          <Read>false</Read>
+          <Write>false</Write>
+          <Fill>false</Fill>
+          <CompressionLevel>1</CompressionLevel>
+          <CompressionAlgorithm>ZLIB</CompressionAlgorithm>
+          <AutoSaveSize>300000000</AutoSaveSize>
+          <AutoFlushSize>-30000000</AutoFlushSize>
+          <CacheSize>-1</CacheSize>
+          <MaxNumberOfEntries>100000000</MaxNumberOfEntries>
+          <TreeInputFileName></TreeInputFileName>
+          <TreeOutputFileName></TreeOutputFileName>
+          <SaveConfiguration>false</SaveConfiguration>
           <Branch>
-            <BranchName>hits</BranchName>
-            <Active>true</Active>
-            <Read>true</Read>
-          </Branch>
-          <Branch>
-            <BranchName>mchits</BranchName>
-            <Active>true</Active>
-            <Read>true</Read>
-          </Branch>
-          <Branch>
-            <BranchName>tracks</BranchName>
+            <BranchName>RecoTracks</BranchName>
             <Active>true</Active>
             <Read>true</Read>
           </Branch>
@@ -104,6 +187,11 @@
       </Trees>
 
       <GlobalSteeringParameters>
+        <SteeringParameterField>
+          <!-- gas mixture composition -->
+          <SPName>GasMixture</SPName>
+          <SPValue>90:10</SPValue>
+        </SteeringParameterField>
         <SteeringParameterField>
           <!-- tube radius in mm -->
           <SPName>tube_radius</SPName>
@@ -144,6 +232,21 @@
           <SPName>central_tube</SPName>
           <SPValue>5</SPValue>
         </SteeringParameterField>
+        <SteeringParameterField>
+          <!-- cabling file -->
+          <SPName>CablingFile</SPName>
+          <SPValue>cabling.dat</SPValue>
+        </SteeringParameterField>
+        <SteeringParameterField>
+          <!-- time offsets file -->
+          <SPName>TimeOffsetsFile</SPName>
+          <SPValue>time_offsets.dat</SPValue>
+        </SteeringParameterField>
+        <SteeringParameterField>
+          <!-- alignment file -->
+          <SPName>AlignmentFile</SPName>
+          <SPValue>alignment.dat</SPValue>
+        </SteeringParameterField>
       </GlobalSteeringParameters>
     </Common>
 
@@ -156,7 +259,7 @@
       </HistogramRead>
 
       <HistogramWrite>
-        <Write>true</Write>
+        <Write>false</Write>
         <Path></Path>
         <FileName></FileName>
         <AccumulateAll>false</AccumulateAll>
@@ -175,7 +278,26 @@
 
       <Tasks>
         <Task>
-          <TaskName>MCGenerator</TaskName>
+          <TaskName>GMCMain</TaskName>
+          <Active>false</Active>
+          <SteeringParameterField>
+            <!-- When this is true, ODB is copied to ROOT output files. 'odb' database must be present in config XML. -->
+            <SPName>WriteODBXML</SPName>
+            <SPValue>true</SPValue>
+          </SteeringParameterField>
+
+          <SteeringParameterGroup>
+            <SPGroupName>EventSelectionText</SPGroupName>
+            <SteeringParameterField>
+              <!-- File name of a text file to skip unselected events by GLBEventSelection task. This file must be created in advance. -->
+              <SPName>InputFileName</SPName>
+              <SPValue></SPValue>
+            </SteeringParameterField>
+          </SteeringParameterGroup>
+        </Task>
+
+        <Task>
+          <TaskName>ReadMCData</TaskName>
           <Active>false</Active>
         </Task>
 
@@ -185,28 +307,68 @@
         </Task>
 
         <Task>
+          <TaskName>GenerateWaveforms</TaskName>
+          <Active>false</Active>
+          <SteeringParameterField>
+            <!-- Resistance in input -->
+            <SPName>ResistRR</SPName>
+            <SPValue>50</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Ions mobility -->
+            <SPName>mobility</SPName>
+            <SPValue>1.04e-05</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- time slope for signal (ns) -->
+            <SPName>tauRumpUp</SPName>
+            <SPValue>1.2</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Rise Constant Time for signal (ns) -->
+            <SPName>tauRumpDown</SPName>
+            <SPValue>8</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Rise Time constant 2for signal (ns) -->
+            <SPName>tauRumpDown2</SPName>
+            <SPValue>6.96</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Fraction of mixing signal (Tassielli shape) -->
+            <SPName>FractionMixSign</SPName>
+            <SPValue>0.45</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Resolution for time acquisition (ns) -->
+            <SPName>BinTimeWidth</SPName>
+            <SPValue>0.4</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Time acquisition window (ns) -->
+            <SPName>TimeWindow</SPName>
+            <SPValue>1000</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- High Voltage on tube -->
+            <SPName>HVTube</SPName>
+            <SPValue>1500</SPValue>
+          </SteeringParameterField>
+          <SteeringParameterField>
+            <!-- Gas Gain -->
+            <SPName>GasGain</SPName>
+            <SPValue>1e+06</SPValue>
+          </SteeringParameterField>
+        </Task>
+
+        <Task>
           <TaskName>WaveformAnalysis</TaskName>
           <Active>false</Active>
         </Task>
 
         <Task>
-          <TaskName>Calibrations</TaskName>
-          <Active>true</Active>
-        </Task>
-
-        <Task>
           <TaskName>TrackFit</TaskName>
-          <Active>true</Active>
-          <SteeringParameterField>
-            <!-- Minimum number of hits -->
-            <SPName>MinNhit</SPName>
-            <SPValue>3</SPValue>
-          </SteeringParameterField>
-          <SteeringParameterField>
-            <!-- Maximum chi2 -->
-            <SPName>MaxChi2</SPName>
-            <SPValue>70</SPValue>
-          </SteeringParameterField>
+          <Active>false</Active>
         </Task>
       </Tasks>
     </Analyzer>
@@ -233,7 +395,7 @@
       <Tabs>
         <Tab>
           <TabName>EventDisplay</TabName>
-          <Active>true</Active>
+          <Active>false</Active>
           <ScreenShotFileName></ScreenShotFileName>
           <NewWindow>false</NewWindow>
         </Tab>
@@ -257,6 +419,22 @@
         </Bank>
         <Bank>
           <BankName>CONF</BankName>
+          <Active>true</Active>
+        </Bank>
+        <Bank>
+          <BankName>DRS0</BankName>
+          <Active>true</Active>
+        </Bank>
+        <Bank>
+          <BankName>DRS1</BankName>
+          <Active>true</Active>
+        </Bank>
+        <Bank>
+          <BankName>PIX0</BankName>
+          <Active>true</Active>
+        </Bank>
+        <Bank>
+          <BankName>PIX1</BankName>
           <Active>true</Active>
         </Bank>
       </Event>

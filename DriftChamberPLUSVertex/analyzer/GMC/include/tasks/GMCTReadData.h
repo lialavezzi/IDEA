@@ -8,12 +8,16 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-
+#include "util/Geometry.h"
 
 #include "generated/GMCTReadData_Base.h"
 
 class GMCTReadData : public GMCTReadData_Base
 {
+
+
+ protected:
+  Geometry *fGeom;
 
 private:
    GMCTReadData(const GMCTReadData &c); // not implemented

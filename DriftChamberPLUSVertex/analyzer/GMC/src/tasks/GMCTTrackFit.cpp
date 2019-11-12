@@ -13,11 +13,15 @@
 // the ROMEBuilder.                                                           //
 //                                                                            //
 // This task accesses the following folders :                                 //
-//     Hit                                                                    //
-//     Track                                                                  //
+//     DCHHit                                                                 //
+//     MPXHit                                                                 //
+//     RecoTracks                                                             //
 //                                                                            //
 // This task contains the following histgrams :                               //
 //    HResidual                                                               //
+//    HResidualUnbiased                                                       //
+//    HResidualBiased                                                         //
+//    HPixelResidualUnbiased                                                  //
 //                                                                            //
 // The histograms/graph are created and saved automaticaly by the task.       //
 //                                                                            //
@@ -40,17 +44,51 @@
  * following line will be lost next time ROMEBuilder is executed.             */
 /////////////////////////////////////----///////////////////////////////////////
 
-#include "util/Geometry.h"
+//#include "util/Geometry.h"
 #include "generated/GMCAnalyzer.h"
+#include "generated/GMCRecoTracks.h"
 #include "tasks/GMCTTrackFit.h"
 #include "ROMEiostream.h"
 #include "TVector3.h"
 #include "TMinuit.h"
-#include "TGraph.h"
+#include "TClonesArray.h"
+#include "TList.h"
+#include "TMath.h"
 #include "TF1.h"
+
+#include "generated/GMCDCHHit.h" 
+#include "generated/GMCMPXHit.h" 
+
+
+#include "ConstField.h"
+#include "FieldManager.h"
+#include <TGeoMaterialInterface.h>
+#include <MaterialEffects.h>
+#include "AbsTrackRep.h"
+#include "RKTrackRep.h"
+#include "Track.h"
+#include "RectangularFinitePlane.h"
+#include <Tools.h>
+#include "KalmanFitter.h"
+#include "KalmanFitterRefTrack.h"
+#include "DAF.h"
+#include "KalmanFitterInfo.h"
+#include <KalmanFittedStateOnPlane.h>
+#include "Exception.h"
+#include "WireMeasurement.h"
+#include "WirePointMeasurement.h"
+#include "SpacepointMeasurement.h"
+#include "PlanarMeasurement.h"
+
+#include <TGeoGlobalMagField.h>
+#include <TGeoManager.h>
+#include <TROOT.h>
+#include <memory>
+
+using namespace genfit;
+
 #define  DRIFTVELOCITY 0.0263
-//#define D(t) ((-29.95 + sqrt(29.95*29.95 + 4.*3.087*(t)))/(2.*3.087))
-#define D(t) (0.562428 + 0.0275425*t - 3.5506e-05*t*t)
+#define D(t) ((-29.95 + sqrt(29.95*29.95 + 4.*3.087*(t)))/(2.*3.087))
 
 
 // uncomment if you want to include headers of all folders
@@ -58,97 +96,297 @@
 
 
 Double_t DISTANCE(TVector3 wire_pos,TVector3 w,TVector3 trk_pos,TVector3 trk_dir);
-Double_t SIGNED_DISTANCE(TVector3 wire_pos,TVector3 w,TVector3 trk_pos,TVector3 trk_dir);
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag);
-void fcn_lr(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag);
 
+
+//Geometry *fGeometry = Geometry::GetInstance();
+TClonesArray *fBrHitsDC;
+
+std::ostream& operator<<( std::ostream& ostr, const TVector3& f ){return ostr<<f.X()<<" "<<f.Y()<<" "<<f.Z();}
 
 ClassImp(GMCTTrackFit)
 
+using namespace std;
 //______________________________________________________________________________
-void GMCTTrackFit::Init()
-{
+void GMCTTrackFit::Init() {
+
+  pixel_0 = new TList();
+  pixel_1 = new TList();
+
+  fGeometry = Geometry::GetInstance();
+
+  //init genfit
+//  TGeoManager::Import("g4GMC.gdml");
+  TGeoManager::Import(gAnalyzer->GetGSP()->GetGeomGDMLfile());
+  FieldManager::getInstance()->init(new ConstField(0,0,0));
+  MaterialEffects* mateff=MaterialEffects::getInstance();
+  //mateff->setEnergyLossBetheBloch(true);
+  //mateff->setNoiseBetheBloch(true);
+  //mateff->setNoiseCoulomb(true);
+
+  //disable brems effect, as it is not correct for positron in genfit
+  mateff->setEnergyLossBrems(false);
+  mateff->setNoiseBrems(false);
+
+  MaterialEffects::getInstance()->init(new TGeoMaterialInterface());
+ 
+
 }
 
 //______________________________________________________________________________
-void GMCTTrackFit::BeginOfRun()
-{
+void GMCTTrackFit::BeginOfRun() {
+  
+  fMinuit = new TMinuit(4);  //initialize TMinuit with a maximum of 5 params             
 
 }
 
 //______________________________________________________________________________
-void GMCTTrackFit::Event() 
-{
+void GMCTTrackFit::Event() {
 
-  Double_t y0=999.;
+  printf("\n ***** Load event %lld ************************ \n",gAnalyzer->GetCurrentEventNumber());
+
+  LoadEvent(gAnalyzer->GetCurrentEventNumber());
+    
+  if (!PixelReconstruction()) {
+    fTheta = 99.;
+    fPhi = 99.;
+  }
+
+
+  if (fBrHitsDC->GetEntries() < 6) {
+    printf(" ****  !!! Event not reconstructable: number of hits less than 6!\n");
+    return;
+  }
   
-  Double_t z0=999.;
+  //if (ChamberReconstruction()) StoreReconstructedTrack();
+
   
-  Double_t theta=999.;
+  if(pixel_0->GetEntries()&&pixel_0->GetEntries()>0){
+    gAnalyzer->SetRecoTracksSize(1);
+    GMCRecoTracks *aTrk = gAnalyzer->GetRecoTracksAt(0);
+    Fit(aTrk);
+  }
+}
+
+//______________________________________________________________________________
+void GMCTTrackFit::LoadEvent(Int_t nev) {
+
+  //return the nev-th event from data tree
+  //  fDataTree->GetEntry(nev-1);
+  fBrHitsDC=gAnalyzer->GetDCHHits();
+  fBrHitsPX=gAnalyzer->GetMPXHits();
+}
+
+//______________________________________________________________________________
+Bool_t GMCTTrackFit::PixelReconstruction() {
+
+  Double_t halfLengPX_mod = 0.5*fGeometry->GetPixelModuleLength(); //in mm 
+  Double_t pixSize = fGeometry->GetPixelSize();
+  Double_t pitch = fGeometry->GetPixelPitch();
+
+  pixel_0->Delete();
+  pixel_1->Delete();
   
-  Double_t phi=999.;
+  Double_t  xhit, yhit;
+  
+  fVertX = 0.;
+  fVertY = 0.;
 
-  gAnalyzer->SetTrackSize(0);
+  if (fBrHitsPX->IsEmpty()) return false;
+   
+  Int_t nHits = 0;
+  for (int i=0;i<fBrHitsPX->GetEntries();i++) {
+   
+     GMCMPXHit *apix = (GMCMPXHit *)fBrHitsPX->At(i);
 
-  if(gAnalyzer->GetHitSize() >= GetSP()->GetMinNhit()){
+     if (apix->GetfNrMPX() == -999) continue;
+     
+     if (apix->GetfTrkIDofHit() != 1 ) continue;
 
-    if(MinuitFit()) {
+     nHits++;
+     xhit = (apix->GetfnrXpixel()*(pixSize + pitch) + 0.5*pixSize)*0.001;
+     yhit = (apix->GetfnrYpixel()*(pixSize + pitch) + 0.5*pixSize)*0.001;
 
-      if(LeftRightMinuitFit()){
+     xhit -= halfLengPX_mod;
+     yhit -= halfLengPX_mod;
 
-	y0=gAnalyzer->GetTrackAt(0)->Gety0_trk();
-	
-	z0=gAnalyzer->GetTrackAt(0)->Getz0_trk();
-	
-	theta=gAnalyzer->GetTrackAt(0)->Gettheta_trk();
-	
-	phi=gAnalyzer->GetTrackAt(0)->Getphi_trk();
-	
-	//Plot Fit_results
-	
-	Int_t nhits = gAnalyzer->GetHitSize();
-	TVector3 wire_dir; 
-	Int_t tube_nr=9999999;
-	
-	Geometry *Geom = Geometry::GetInstance();
-	
-	for(Int_t ihit=0; ihit<nhits; ihit++){
-	  
-	  tube_nr=gAnalyzer->GetHitAt(ihit)->Gettube_nr();
-	  
-	  TVector3 wire_pos = Geom->Getwire_pos(tube_nr);
-	  
-	  wire_dir=TVector3(1,0,0);
-	  
-	  Double_t trk_impact_par=SIGNED_DISTANCE(wire_pos,wire_dir,TVector3(0.,y0,z0),TVector3(sin(theta)*sin(phi),sin(theta)*cos(phi),cos(theta)));
-	  gAnalyzer->GetHitAt(ihit)->Setd_trk(trk_impact_par);
-	  gAnalyzer->GetHitAt(ihit)->Setd_meas(TMath::Sign(1.,trk_impact_par)*D(gAnalyzer->GetHitAt(ihit)->Gett_meas()));
-	  
-	  if(gAnalyzer->GetHitAt(ihit)->Gettube_nr()==gAnalyzer->GetGSP()->Getcentral_tube()){
-	    
-	    gAnalyzer->GetTrackAt(0)->Setd_trk_central(trk_impact_par);
-	    gAnalyzer->GetTrackAt(0)->Setd_meas_central(D(gAnalyzer->GetHitAt(ihit)->Gett_meas()));
-	    
-	    GetHResidual()->Fill(D(gAnalyzer->GetHitAt(ihit)->Gett_meas()) - gAnalyzer->GetTrackAt(0)->Getd_trk_central());
-	    
-	  }
+     printf("Pixel nr. %d, track Id: %d, pixel-x = %d, pixel-y = %d, coord = (%5.3f, %5.3f)\n",
+      apix->GetfNrMPX(),apix->GetfTrkIDofHit(),apix->GetfnrXpixel(),apix->GetfnrYpixel(),
+      apix->GetfxMC(),apix->GetfyMC());
+      
+     if (apix->GetfNrMPX() == 0) pixel_0->Add( new TVector3(xhit,yhit,-100.05) );
+     else pixel_1->Add( new TVector3(xhit,yhit,100.05) );
+   }
 
+   if (nHits == 0) return false;
+
+   cout<<"Track Mutiplicity  "<<pixel_0->GetEntries()*pixel_1->GetEntries()<<endl;
+   cout<<"Estimated Track Parameters : "<<endl;
+   
+   if (pixel_1->IsEmpty()) {
+    Double_t  pixHit = TMath::Hypot(((TVector3 *)pixel_0->At(0))->X(),((TVector3 *)pixel_0->At(0))->Y()); 
+    fPhi = TMath::ATan2(((TVector3 *)pixel_0->At(0))->Y(),((TVector3 *)pixel_0->At(0))->X());
+    fTheta = TMath::ATan2(pixHit,500-100.05);
+    cout<<" theta = "<<fTheta<<"   and phi = "<<fPhi<<endl;
+    return true;
+   } 
+      
+   TVector3 TrackDir = TVector3( ((TVector3 *)pixel_1->At(0))->X() - ((TVector3 *)pixel_0->At(0))->X(),
+                                 ((TVector3 *)pixel_1->At(0))->Y() - ((TVector3 *)pixel_0->At(0))->Y(),
+                                 ((TVector3 *)pixel_1->At(0))->Z() - ((TVector3 *)pixel_0->At(0))->Z() );
+   
+   fTheta = TrackDir.Theta();
+   fPhi = TrackDir.Phi();
+   
+   cout<<" theta = "<<fTheta<<"   and phi = "<<fPhi<<endl;
+
+   Double_t  parT = -400./TrackDir.Z();
+   fVertX = ((TVector3 *)pixel_0->At(0))->X() + parT*TrackDir.X();
+   fVertY = ((TVector3 *)pixel_0->At(0))->Y() + parT*TrackDir.Y();
+
+   cout<<"Coordinate Vertice "<<fVertX<<"   "<<fVertY<<endl;
+
+   return true;
+}
+
+//______________________________________________________________________________
+Bool_t GMCTTrackFit::ChamberReconstruction() {
+
+  if (fBrHitsDC->GetEntries() < 6) {
+    printf(" ****  !!! Event not reconstructable: number of hits less than 6!\n");
+  
+    return false;
+  }
+
+  if (fTheta == 99.) {
+    //not recontruction in the modupix
+    TVector3 wpos = fGeometry->Getwire_pos(((GMCDCHHit*)fBrHitsDC->At(0))->GetfCellId());
+    fTheta = TMath::ATan2(wpos.Y(),500.-wpos.Z());
+    if (((GMCDCHHit*)fBrHitsDC->At(0))->GetfCellId() < 8) fPhi = 0.5*TMath::Pi();
+    else fPhi = 0.5*TMath::Pi();
+  }
+
+  fMinuit = NULL;
+  
+  fMinuit = new TMinuit(4);
+  
+  fMinuit->SetFCN(fcn);
+  fMinuit->SetPrintLevel(1);
+
+  if (fabs(fVertX) > 5.5) fVertX = TMath::Sign(1.,fVertX)*5.4;
+  if (fabs(fVertY) > 5.5) fVertY = TMath::Sign(1.,fVertY)*5.4;
+  if (fabs(fTheta) > 0.03) fTheta = 0.029;
+  if (fabs(fPhi) > TMath::Pi()) fPhi = TMath::Sign(1.,fPhi)*TMath::Pi();
+
+  fMinuit->DefineParameter(0, "x0",fVertX, 0.,-5.5,5.5);
+  fMinuit->DefineParameter(1, "y0",fVertY, 0.005,-5.5,5.5);
+  fMinuit->DefineParameter(2, "px/pz",cos(fPhi)*sin(fTheta)/cos(fTheta),0.0,-0.1,0.1);
+  fMinuit->DefineParameter(3, "py/pz",sin(fPhi)*sin(fTheta)/cos(fTheta),0.001,-0.1,0.1);
+
+  double arglist[10];
+  int ierflg = 0;
+
+  //minimization strategy
+  arglist[0] = 1;    //1 standard   2 try improve minimum
+  fMinuit->mnexcm("SET STR",arglist,1,ierflg);
+
+  arglist[0] = 1000;   //number of steps
+  fMinuit->mnexcm("MIGRAD",arglist,1,ierflg);
+
+  
+ return true;
+
+}
+
+//______________________________________________________________________________
+void GMCTTrackFit::StoreReconstructedTrack() {
+
+  Double_t best_y0,best_x0,best_theta,best_phi;       
+  Double_t best_y0_err,best_x0_err,best_theta_err,best_phi_err;       
+  double pxpz,pypz,epxpz,epypz;
+  
+  fMinuit->GetParameter(0,best_x0,best_x0_err);
+  fMinuit->GetParameter(1,best_y0,best_y0_err);
+  fMinuit->GetParameter(2,pxpz,epxpz);
+  fMinuit->GetParameter(3,pypz,epypz);
+
+  TVector3 trkdir(pxpz,pypz,1);trkdir.Unit();
+  best_theta=trkdir.Theta();
+  best_phi=trkdir.Phi();
+  best_theta_err=TMath::Hypot(epxpz,epypz);
+  best_phi_err=TMath::Hypot(epxpz,epypz);
+  
+  
+   Double_t fmin,edm,errdef;
+   Int_t nvpar,nparx,icstat;
+   fMinuit->mnstat(fmin,edm,errdef,nvpar,nparx,icstat);
+
+    cout<<"*******  traccia ricostruita *********** "<<fmin<<"  status: "<<icstat<<endl;
+
+    cout<<" Vertex pos X = "<<best_x0<<endl;
+    cout<<" Vertex pos Y = "<<best_y0<<endl;
+    cout<<" Vertex theta = "<<best_theta<<endl;
+    cout<<" Vertex phi = "<<best_phi<<endl;
+    cout<<" Vertex px/pz= "<<pxpz<<endl;
+    cout<<" Vertex py/pz = "<<pypz<<endl;
+
+
+    Int_t nhits = fBrHitsDC->GetEntries();
+    int numhits=0;
+    for(Int_t ihit=0; ihit<nhits; ihit++){	
+	GMCDCHHit *ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
+	//only hits beloging to primary track
+	if (ahit->GetfTrkIDofHit() == 1) {
+	  numhits++;
 	}
+    }
+    
+    gAnalyzer->SetRecoTracksSize(1);
+    GMCRecoTracks *aTrk = gAnalyzer->GetRecoTracksAt(0);
 
-      } //end of if(LeftRightMinuitFit())
+    aTrk->Setx0(best_x0);
+    aTrk->Seterr_x0(best_x0_err);
+    aTrk->Sety0(best_y0);
+    aTrk->Seterr_y0(best_y0_err);
+    aTrk->Setz0(-500);
+    aTrk->Seterr_z0(0.);
+    aTrk->Settheta(best_theta);
+    aTrk->Seterr_theta(best_theta_err);
+    aTrk->Setphi(best_phi);
+    aTrk->Seterr_phi(best_phi_err);
 
-      else gAnalyzer->SetTrackSize(0);
+    aTrk->Setchi2(fmin);
+    aTrk->Setngoodhits(numhits);
+    aTrk->Setnhits(numhits);
+    aTrk->Setdof(numhits-2);
+
+
+
+    if(IsHResidualActive()){
+      Int_t nhits = fBrHitsDC->GetEntries();      
+      for(Int_t ihit=0; ihit<nhits; ihit++){
+	
+	GMCDCHHit *ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
+	
+	//only hits beloging to primary track
+	if (ahit->GetfTrkIDofHit() == 1) {
+	  
+	  Int_t tube_nr=ahit->GetfCellId();
+	  
+	  TVector3 wire_pos = fGeometry->Getwire_pos(tube_nr);
+	  TVector3 wire_dir = fGeometry->Getwire_dir(tube_nr);
+	  
+	  Double_t trk_impact_par=DISTANCE(wire_pos,wire_dir,TVector3(best_x0,best_y0,-500.),TVector3(sin(best_theta)*cos(best_phi),sin(best_theta)*sin(best_phi),cos(best_theta)));
+	  Double_t b_meas = ahit->GetfImpact();
+	  
+	  GetHResidual()->Fill(trk_impact_par,b_meas-trk_impact_par);
+	}
+      }
+
 
     }
-
-  }
-
-  else {
-
-    gAnalyzer->SetTrackSize(0);
-
-  }
-
+    
+    std::cout<<"Track chi2/ndf "<<aTrk->Getchi2()<<" "<<aTrk->Getdof()<<endl;
 }
 
 //______________________________________________________________________________
@@ -158,13 +396,17 @@ void GMCTTrackFit::EndOfRun()
   //    GetHResidual()->Draw();
 }
 //______________________________________________________________________________
-void GMCTTrackFit::Terminate()
-{
+void GMCTTrackFit::Terminate() {
+
+  //delete fDataTree;
+ 
 }
 
-Double_t DISTANCE(TVector3 wire_pos,TVector3 w,TVector3 trk_pos,TVector3 trk_dir){
+//____________________________________________________________________________
+Double_t DISTANCE(TVector3 wpos,TVector3 wdir,TVector3 trk_pos,TVector3 trk_dir){
   
   Double_t impact_parameter=-999999;
+/******
   Double_t A=trk_dir.Dot(trk_dir);
   Double_t B=trk_dir.Dot(w);//Dot() prodotto scalare tra trk e wire      
   Double_t C=w.Dot(w); 
@@ -173,232 +415,449 @@ Double_t DISTANCE(TVector3 wire_pos,TVector3 w,TVector3 trk_pos,TVector3 trk_dir
   
   TVector3 P0 = trk_pos + (B*E-C*D)/(A*C-B*B)*trk_dir;
   TVector3 Q0 = wire_pos + (A*E-B*D)/(A*C-B*B)*w;
- 
+
   impact_parameter=(P0-Q0).Mag();
-  
+********************/
+    TVector3 delta(wpos - trk_pos);
+    TVector3 crossprod = trk_dir.Cross(wdir);
+
+//    Double_t detParT = delta.Dot(crossprod.Cross(-wdir));
+//    Double_t detParU = delta.Dot(crossprod);
+//    Double_t determ = trk_dir.Dot(crossprod.Cross(-wdir));
+    
+//    Double_t parT = detParT/determ;
+//    Double_t parU = detParU/determ;
+   
+//    TVector3 pca(trk_pos + parT*trk_dir);
+//    TVector3 wpt(wpos + parU*wdir);
+
+    impact_parameter = fabs(delta.Dot(crossprod));
+    impact_parameter /= crossprod.Mag();
+//    impact_parameter = (pca - wpt).Mag();  
+    
   return impact_parameter;
 }
 
-Double_t SIGNED_DISTANCE(TVector3 wire_pos,TVector3 w,TVector3 trk_pos,TVector3 trk_dir){
-  
-  Double_t impact_parameter=-999999;
-  Double_t A=trk_dir.Dot(trk_dir);
-  Double_t B=trk_dir.Dot(w);//Dot() prodotto scalare tra trk e wire      
-  Double_t C=w.Dot(w); 
-  Double_t D=trk_dir.Dot(trk_pos-wire_pos);
-  Double_t E=w.Dot(trk_pos-wire_pos);
-  
-  TVector3 P0 = trk_pos + (B*E-C*D)/(A*C-B*B)*trk_dir;
-  TVector3 Q0 = wire_pos + (A*E-B*D)/(A*C-B*B)*w;
- 
-  impact_parameter=(P0-Q0).Mag();
-  
-  return TMath::Sign(1.,(P0-Q0).Y()) * impact_parameter;
-
-}
-
+//__________________________________________________________________________
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
-  
+
   Double_t chisquare=0.;  
-  Double_t sigma=0.12;
-  
-  Double_t y0 = par[0];
-  Double_t z0 = par[1];
-  Double_t theta = par[2];
+  Double_t sigma=0.12;//mm *DRIFTVELOCITY;//ns
+   
+  Double_t x0 = par[0];
+  Double_t y0 = par[1];
+  /* Double_t theta = par[2];
   Double_t phi = par[3];
+  TVector3 trkdir(sin(theta)*cos(phi),sin(theta)*sin(phi),cos(theta));*/
 
-  Double_t R = gAnalyzer->GetGSP()->Gettube_radius();
-  Int_t nhits = gAnalyzer->GetHitSize();
-  TVector3 wire_dir=TVector3(1.,0.,0.);
+  Double_t pxpz = par[2];
+  Double_t pypz = par[3];
+  TVector3 trkdir(pxpz,pypz,1);trkdir.Unit();
 
-  Geometry *Geom = Geometry::GetInstance();
 
-  Int_t ngood = 0;
+  //  Double_t R = 0.5*fGeometry->GetTubeSize();
+
+  Int_t nhits = fBrHitsDC->GetEntries();
+
+  GMCDCHHit *ahit;
 
   for(Int_t ihit=0; ihit<nhits; ihit++){
     
-     Int_t tube_nr=gAnalyzer->GetHitAt(ihit)->Gettube_nr();
-    
-     TVector3 wire_pos = Geom->Getwire_pos(tube_nr);
+    ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
 
-     Double_t trk_impact_par=DISTANCE(wire_pos,wire_dir,TVector3(0.,y0,z0),TVector3(sin(theta)*sin(phi),sin(theta)*cos(phi),cos(theta)));
-     Double_t t_meas=gAnalyzer->GetHitAt(ihit)->Gett_meas();
+    //only hits beloging to primary track
+    if (ahit->GetfTrkIDofHit() == 1) {
+
+      Int_t tube_nr=ahit->GetfCellId();
+    
+      TVector3 wire_pos = /*fGeometry*/Geometry::GetInstance()->Getwire_pos(tube_nr);
+      TVector3 wire_dir = /*fGeometry*/Geometry::GetInstance()->Getwire_dir(tube_nr);
+
+     Double_t trk_impact_par=DISTANCE(wire_pos,wire_dir,TVector3(x0,y0,-500.),trkdir);
+
+     Double_t b_meas = ahit->GetfImpact();
 	 
-     if(tube_nr != gAnalyzer->GetGSP()->Getcentral_tube()){
-       chisquare+=(pow(D(t_meas)-trk_impact_par,2))/pow(sigma,2);
-       ngood++;
-     }
+     chisquare+=(pow(b_meas-trk_impact_par,2))/pow(sigma,2);
+    }
   }
-
-  f=chisquare/(ngood-2.);
+  //definizione parametri
+  f=chisquare;
 
 }
 
-void fcn_lr(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag){
+
+//______________________________________________________________________________
+Bool_t GMCTTrackFit::Fit(GMCRecoTracks *aTrack) {
+  int fDebug=1;
   
-  Double_t chisquare=0.;  
-  Double_t sigma=0.12;
-  
-  Double_t y0 = par[0];
-  Double_t z0 = par[1];
-  Double_t theta = par[2];
-  Double_t phi = par[3];
-
-  Double_t pre_y0 = par[4];
-  Double_t pre_z0 = par[5];
-  Double_t pre_theta = par[6];
-  Double_t pre_phi = par[7];
-
-  Double_t R = gAnalyzer->GetGSP()->Gettube_radius();
-  Int_t nhits = gAnalyzer->GetHitSize();
-  TVector3 wire_dir=TVector3(1.,0.,0.);
-
-  Geometry *Geom = Geometry::GetInstance();
-
-  Int_t ngood = 0;
-
-  for(Int_t ihit=0; ihit<nhits; ihit++){
-    
-     Int_t tube_nr=gAnalyzer->GetHitAt(ihit)->Gettube_nr();
-    
-     TVector3 wire_pos = Geom->Getwire_pos(tube_nr);
-
-     ///Track fitted with absolute distance is used to determine the LR solutions
-     Double_t signed_trk_impact_par=SIGNED_DISTANCE(wire_pos,wire_dir,TVector3(0.,pre_y0,pre_z0),TVector3(sin(pre_theta)*sin(pre_phi),sin(pre_theta)*cos(pre_phi),cos(pre_theta)));
-
-     ///Signed distance for the track to be fitted
-     Double_t trk_impact_par=SIGNED_DISTANCE(wire_pos,wire_dir,TVector3(0.,y0,z0),TVector3(sin(theta)*sin(phi),sin(theta)*cos(phi),cos(theta)));
-
-     Double_t t_meas=gAnalyzer->GetHitAt(ihit)->Gett_meas();
-     
-     //cout << TMath::Sign(1.,signed_trk_impact_par)*D(t_meas) << "  " << trk_impact_par << endl;
-
-     if(tube_nr != gAnalyzer->GetGSP()->Getcentral_tube()){
-       chisquare+=(pow(TMath::Sign(1.,signed_trk_impact_par)*D(t_meas)-trk_impact_par,2))/pow(sigma,2);
-       ngood++;
-     }
+  if (fBrHitsDC->GetEntries() < 6) {
+    printf(" ****  !!! Event not reconstructable: number of hits less than 6!\n");
+    return false;
   }
 
-  f=chisquare/(ngood-2.);
-
-}
-
-Int_t GMCTTrackFit::MinuitFit (){  
-  
-  TMinuit minuit(4);  //initialize TMinuit with a maximum of 5 params             
-  Double_t best_y0,best_z0,best_theta,best_phi;       
-  Double_t best_y0_err,best_z0_err,best_theta_err,best_phi_err;       
-  
-  minuit.SetFCN(fcn);
-  minuit.SetPrintLevel(-1);
-
-  minuit.DefineParameter(0, "y0",1., 0.01,-15, 15);
-  minuit.DefineParameter(1, "z0",-50, 0.01,-45, 45);
-  minuit.DefineParameter(2, "theta",0.,0.01,-M_PI/2., M_PI/2.);
-  minuit.DefineParameter(3, "phi",0.,0.1,-M_PI,M_PI);
-  minuit.FixParameter(3);
-  minuit.FixParameter(1);
-  Int_t status = minuit.Command("MIGRAD 1000");
-  
-  Double_t chi2, fedm, errdef;
-  Int_t npari, nparx, istat;
-  minuit.mnstat(chi2,fedm,errdef,npari,nparx,istat);
-
-  if(status == 0 && chi2 < GetSP()->GetMaxChi2()){
-
-    minuit.GetParameter(0,best_y0,best_y0_err);
-    minuit.GetParameter(1,best_z0,best_z0_err);
-    minuit.GetParameter(2,best_theta,best_theta_err);
-    minuit.GetParameter(3,best_phi,best_phi_err);
-
-    gAnalyzer->SetTrackSize(1);
-    
-    gAnalyzer->GetTrackAt(0)->Sety0_trk(best_y0);
-    gAnalyzer->GetTrackAt(0)->Sety0_trk_err(best_y0_err);
-    gAnalyzer->GetTrackAt(0)->Setz0_trk(best_z0);
-    gAnalyzer->GetTrackAt(0)->Setz0_trk_err(best_z0_err);
-    gAnalyzer->GetTrackAt(0)->Settheta_trk(best_theta);
-    gAnalyzer->GetTrackAt(0)->Settheta_trk_err(best_theta_err);
-    gAnalyzer->GetTrackAt(0)->Setphi_trk(best_phi);
-    gAnalyzer->GetTrackAt(0)->Setphi_trk_err(best_phi_err);    
-    gAnalyzer->GetTrackAt(0)->Setchi2(chi2);
-    //inizialize 
-    gAnalyzer->GetTrackAt(0)->Setd_trk_central(999.);
-    gAnalyzer->GetTrackAt(0)->Setd_meas_central(9999.);
-
-    return 1;
-
+  if (fTheta == 99.) {
+    //not recontruction in the modupix
+    TVector3 wpos = fGeometry->Getwire_pos(((GMCDCHHit*)fBrHitsDC->At(0))->GetfCellId());
+    fTheta = TMath::ATan2(wpos.Y(),500.-wpos.Z());
+    if (((GMCDCHHit*)fBrHitsDC->At(0))->GetfCellId() < 8) fPhi = 0.5*TMath::Pi();
+    else fPhi = 0.5*TMath::Pi();
   }
 
-  gAnalyzer->SetTrackSize(0);
+  Int_t nhits = fBrHitsDC->GetEntries();
 
-  return 0;
+  //init values
+  TVector3 xyz0(fVertX*0.1,fVertY*0.1,-50.);
+  TVector3 pdir0(cos(fPhi)*sin(fTheta),sin(fPhi)*sin(fTheta),cos(fTheta));
+  TVector3 pmom0=0.1*pdir0;//0.1 GeV
 
-}
+  xyz0+=pdir0*((50.-5)/pdir0.Z());
+  //Do initialization of initial covariance matrix with sigma_p,sigma_angle, 1cm position
+  TMatrixDSym Cov(6); Cov.Zero();
 
-Int_t GMCTTrackFit::LeftRightMinuitFit (){  
-  
-  TMinuit minuit(4);  //initialize TMinuit with a maximum of 5 params             
-  Double_t best_y0,best_z0,best_theta,best_phi;       
-  Double_t best_y0_err,best_z0_err,best_theta_err,best_phi_err;       
-  
-  minuit.SetFCN(fcn_lr);
-  minuit.SetPrintLevel(-1);
+  Cov[0][0] = Cov[1][1] =Cov[2][2] = 0.1*0.1;//centimeters
+  Cov[3][3] = Cov[4][4] =Cov[5][5] = 0.001*0.001;//GeV
 
-  minuit.DefineParameter(0, "y0",1., 0.01,-15, 15);
-  minuit.DefineParameter(1, "z0",-50, 0.01,-45, 45);
-  minuit.DefineParameter(2, "theta",0.,0.01,-M_PI/2., M_PI/2.);
-  minuit.DefineParameter(3, "phi",0.,0.1,-M_PI,M_PI);
+  //-----------------------------------
+  //init positron track with parameters from first State Vector and predefined Covariance matrix
+  //-----------------------------------
 
-  minuit.DefineParameter(4, "pre_y0",gAnalyzer->GetTrackAt(0)->Gety0_trk(), 0.01,-15, 15);
-  minuit.DefineParameter(5, "pre_z0",gAnalyzer->GetTrackAt(0)->Getz0_trk(), 0.01,-45, 45);
-  minuit.DefineParameter(6, "pre_theta",gAnalyzer->GetTrackAt(0)->Gettheta_trk(),0.01,-M_PI/2., M_PI/2.);
-  minuit.DefineParameter(7, "pre_phi",gAnalyzer->GetTrackAt(0)->Getphi_trk(),0.1,-M_PI,M_PI);
+  AbsTrackRep *rep = new RKTrackRep(-11);
+  MeasuredStateOnPlane stateRef(rep);
+  rep->setPosMomCov(stateRef,xyz0,pmom0,Cov);
+  stateRef.setTime(0.);
 
-  //2D fit
-  minuit.FixParameter(3);
-  minuit.FixParameter(1);
+  //init genfit track from initial state
+  TVectorD seedState(6);
+  TMatrixDSym seedCov(6);
+  rep->get6DStateCov(stateRef, seedState, seedCov);
+  Track fitTrack(rep,seedState, seedCov);
+  fitTrack.setTimeSeed(0.);
 
-  minuit.FixParameter(4);
-  minuit.FixParameter(5);
-  minuit.FixParameter(6);
-  minuit.FixParameter(7);
 
-  Int_t status = minuit.Command("MIGRAD 1000");
-  
-  Double_t chi2, fedm, errdef;
-  Int_t npari, nparx, istat;
-  minuit.mnstat(chi2,fedm,errdef,npari,nparx,istat);
+  //-----------------------------------------------
+  //fill hit information
+  //-----------------------------------------------
+  int nid=0;
 
-  if(status == 0 && chi2 < GetSP()->GetMaxChi2()){
+  double pxlResolution=.002; // 20 mum resolution of planar detectors
+  TMatrixDSym hitpxlCov(2);
+  hitpxlCov.UnitMatrix();
+  hitpxlCov *= pxlResolution*pxlResolution;
 
-    minuit.GetParameter(0,best_y0,best_y0_err);
-    minuit.GetParameter(1,best_z0,best_z0_err);
-    minuit.GetParameter(2,best_theta,best_theta_err);
-    minuit.GetParameter(3,best_phi,best_phi_err);
-
-    gAnalyzer->SetTrackSize(1);
-    
-    gAnalyzer->GetTrackAt(0)->Sety0_trk(best_y0);
-    gAnalyzer->GetTrackAt(0)->Sety0_trk_err(best_y0_err);
-    gAnalyzer->GetTrackAt(0)->Setz0_trk(best_z0);
-    gAnalyzer->GetTrackAt(0)->Setz0_trk_err(best_z0_err);
-    gAnalyzer->GetTrackAt(0)->Settheta_trk(best_theta);
-    gAnalyzer->GetTrackAt(0)->Settheta_trk_err(best_theta_err);
-    gAnalyzer->GetTrackAt(0)->Setphi_trk(best_phi);
-    gAnalyzer->GetTrackAt(0)->Setphi_trk_err(best_phi_err);    
-    gAnalyzer->GetTrackAt(0)->Setchi2(chi2);
-    //inizialize 
-    gAnalyzer->GetTrackAt(0)->Setd_trk_central(999.);
-    gAnalyzer->GetTrackAt(0)->Setd_meas_central(9999.);
-
-    return 1;
-
+  if(pixel_0->GetEntries()>0){
+    TVector3 pixel=(*((TVector3*)pixel_0->At(0)))*0.1;
+    TVectorD hitCoords(2);
+    hitCoords[0] = pixel.X();
+    hitCoords[1] = pixel.Y();
+    genfit::PlanarMeasurement* measurement = new genfit::PlanarMeasurement(hitCoords, hitpxlCov, 10, 1000, NULL);
+    measurement->setPlane(genfit::SharedPlanePtr(new genfit::DetPlane(TVector3(0,0,pixel.Z()), TVector3(1,0,0), TVector3(0,1,0))), 0);
+    fitTrack.insertMeasurement(measurement,nid++);
+    cout<<nid<<" add pixel "<<pixel<<endl;
   }
 
-  gAnalyzer->SetTrackSize(0);
+  for(int ihit=0;ihit<nhits;ihit++){
+    
+    GMCDCHHit *ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
 
-  return 0;
+    //only hits beloging to primary track
+    if (ahit->GetfTrkIDofHit() != 1) continue;
 
+    Int_t nwire=ahit->GetfCellId();
+    
+    TVector3 wire_pos = fGeometry->Getwire_pos(nwire);
+    TVector3 wire_dir = fGeometry->Getwire_dir(nwire);
+
+    
+    Double_t trk_impact_par=DISTANCE(wire_pos,wire_dir,xyz0,pdir0);
+    Double_t b_meas = ahit->GetfImpact();
+
+    //fill mesuarements
+    TVector3 p0 = 0.1*wire_pos;
+    TVector3 w_axis = wire_dir;
+    double wnorm=w_axis.Mag();
+    TVectorD hitCoords(8);
+    TMatrixDSym hitCov(8);
+    //fill wire ends
+    for(int i=0;i<3;i++){
+      hitCoords(i)=(p0+100*w_axis)(i);
+      hitCoords(i+3)=(p0-100*w_axis)(i);
+    }
+    //mesuared values dist,Z:
+    hitCoords(6) = b_meas*0.1;
+    //z mesuarment are relative to wire1 in direction of wire2
+    hitCoords(7) = 100.*wnorm;
+    hitCov(6,6) = 0.012*0.012;
+    hitCov(7,7) = 100*100;
+    WireMeasurement *whit;
+    if(1==0){//use Z 
+      whit=new WirePointMeasurement(hitCoords, hitCov,3,ihit,nullptr);
+    }else{
+      whit=new WireMeasurement(hitCoords, hitCov,3,ihit,nullptr);
+    }
+    whit->setLeftRightResolution(0);//1>0?1:-1);
+    fitTrack.insertMeasurement(whit,nid++);
+
+    std::cout<<"add "<<ihit<<" wire "<<nwire<<" xywire "<<p0.X()<<" "<<p0.Y()<<" "<<p0.z()
+	     <<" bl "<<hitCoords(6)<<" sigma "<<sqrt(hitCov(6,6))<<" "<<sqrt(hitCov(7,7))<<std::endl;
+  }
+
+  if(pixel_1->GetEntries()>0){
+    TVector3 pixel=(*((TVector3*)pixel_1->At(0)))*0.1;
+    TVectorD hitCoords(2);
+    hitCoords[0] = pixel.X();
+    hitCoords[1] = pixel.Y();
+    genfit::PlanarMeasurement* measurement = new genfit::PlanarMeasurement(hitCoords, hitpxlCov, 10, 1001, NULL);
+    measurement->setPlane(genfit::SharedPlanePtr(new genfit::DetPlane(TVector3(0,0,pixel.Z()), TVector3(1,0,0), TVector3(0,1,0))), 1);
+    fitTrack.insertMeasurement(measurement,nid++);
+    cout<<nid<<" add pixel "<<pixel<<endl;
+  }
+  // ---- end of hit info filling ------------------------
+
+  
+  assert(fitTrack.checkConsistency());
+  genfit::FitStatus* fitStatus=fitTrack.getFitStatus(rep);
+  if(fDebug){
+    std::cout<<" init chi2 "<<fitStatus->getChi2()<<" nfailed "<<fitStatus->getNFailedPoints()
+             <<" P= "<<rep->getMomMag(stateRef)*rep->getCharge(stateRef)<<" +- "<<sqrt(rep->getMomVar(stateRef))
+	     <<" nhits "<<nid<<" from "<<nhits<<std::endl;
+    std::cout<<"init state "<<xyz0<<" "<<pmom0<<endl;
+  }
+
+  //choose different fitter
+  genfit::AbsKalmanFitter* fitter = 0;
+  switch(0/*GetSP()->GetKalmanType()*/){
+  case 0:
+    fitter=new DAF();
+    break;
+  case 1:
+    fitter=new KalmanFitterRefTrack(20);
+    break;
+  case 2:
+    fitter=new KalmanFitter(20);
+    break;
+  }
+  /*
+  if(GetSP()->GetKalmanType()>0){
+    //use LR from patter recognition in case of usual KalmanFitter 
+    fitter->setMultipleMeasurementHandling(genfit::weightedClosestToPredictionWire);
+  }*/
+  
+  if(kDebug>20){
+    fitter->setDebugLvl(10);
+    rep->setDebugLvl(10);
+  }
+
+  //-----------------------------------
+  // FIT IT
+  //-----------------------------------
+
+  try{
+    fitter->processTrack(&fitTrack);
+  }catch(Exception& e){
+    if(fDebug) std::cout<<"on fitting "<<e.what()<<std::endl;
+  }
+  fitStatus=fitTrack.getFitStatus(rep);
+  bool fitstatus=fitStatus->isFitConverged()&&(fitStatus->getNFailedPoints()==0);
+  if(fDebug) fitStatus->Print();
+
+
+  TVector3 pos,mom;
+  TMatrixDSym cov(6);
+  TVector3 pos2,mom2;
+  TMatrixDSym cov2(6);
+  double pmom=0;
+  double tof=0;
+
+  //-----------------------------------
+  // fill info from first hit  
+  //-----------------------------------
+
+  try{
+    const MeasuredStateOnPlane& stFirst=fitTrack.getFittedState();
+    pmom=rep->getMomMag(stFirst)*rep->getCharge(stFirst);
+    stFirst.getPosMomCov(pos,mom,cov);
+    tof=stFirst.getTime();
+  }catch(Exception& e){
+    if(fDebug) std::cout<<"on getting state "<<e.what()<<std::endl;
+  }
+
+
+  if(fitStatus&&IsHResidualActive()){
+    Int_t nhits = fBrHitsDC->GetEntries();      
+    for(Int_t ihit=0; ihit<nhits; ihit++){
+      
+      GMCDCHHit *ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
+      
+      //only hits beloging to primary track
+      if (ahit->GetfTrkIDofHit() == 1) {
+	
+	Int_t tube_nr=ahit->GetfCellId();
+	
+	TVector3 wire_pos = fGeometry->Getwire_pos(tube_nr);
+	TVector3 wire_dir = fGeometry->Getwire_dir(tube_nr);
+	TVector3 pdir=mom;pdir.Unit();
+	Double_t trk_impact_par=DISTANCE(wire_pos,wire_dir,10*pos,pdir);
+	Double_t b_meas = ahit->GetfImpact();
+	// std::cout<<"line "<<ihit<<" at "<<wire_pos<<" trk "<<trk_impact_par<<" mes "<<b_meas<<std::endl;
+	GetHResidual()->Fill(trk_impact_par,b_meas-trk_impact_par);
+      }
+    }
+  }
+
+  
+  
+  if(fDebug)
+    std::cout<<" chi2 "<<fitStatus->getChi2()<<" nfailed "<<fitStatus->getNFailedPoints()
+             <<" P= "<<pmom<<" fitok="<<fitstatus<<std::endl;
+  
+  if(fDebug){std::cout<<"fitted xyz "<<pos<<" mom "<<mom<<endl;}
+
+  //-----------------------------------
+  //set states on hits
+  //-----------------------------------
+
+  unsigned int numhits = fitTrack.getNumPoints();
+
+  int ngoodhits=0;
+  double sumddist=0;
+
+  aTrack->SetSkippedSize(nhits,true);
+  
+  if(fitstatus){
+    try{
+      for(unsigned int jhit=0;jhit<numhits;jhit++){
+        TrackPoint* point = fitTrack.getPoint(jhit);
+        int ihit=point->getRawMeasurement(0)->getHitId();
+
+        //skip virtual hit
+	//        if(ihit>=1000) continue;
+	
+        //skip point without fitted information
+        if(!point->hasFitterInfo(rep)) continue;
+        
+        KalmanFitterInfo* fi = static_cast<KalmanFitterInfo*>(point->getFitterInfo(rep));
+        //get weights for LR combinations
+        std::vector<double> dafWeights = fi->getWeights();
+
+        //maximum weigth in fitting from LR positions 
+        int imaxdaf=std::distance(dafWeights.begin(),
+                                  std::max_element(dafWeights.begin(),dafWeights.end()));
+        double maxdaf=dafWeights[imaxdaf];
+
+
+	//fill histogram with final chi2 per hit
+	const MeasurementOnPlane& residual = fi->getResidual(imaxdaf, false, false);
+	const TVectorD& resid(residual.getState());
+
+	if(ihit<1000){
+	  //average T0 shift over hits
+	  if(maxdaf>=0.5) sumddist+=resid(0)*(imaxdaf?1:-1);
+	   
+	  //dont fill StateVector forr skipped hits during fitting(in normal case hit must have weight=1.)
+	  if(maxdaf<0.5) {
+	    if(fDebug>9) std::cout<<"skip point "<<endl;
+	    continue;
+	  }
+	}
+
+        //fill biased best StateVector on hit
+        // (averaged from forward-backward propagation)
+	const MeasuredStateOnPlane& state=fi->getFittedState(true);  
+	state.getPosMomCov(pos,mom,cov);
+
+	//unbiased
+	const MeasuredStateOnPlane& state2=fi->getFittedState(false);  
+	state2.getPosMomCov(pos2,mom2,cov2);
+      	
+
+	if(ihit<1000){ //wire hit
+	  aTrack->SetSkippedAt(ihit,false);
+	  ngoodhits++;
+	  GMCDCHHit *ahit = (GMCDCHHit*) fBrHitsDC->At(ihit);
+	  cout<<ihit<<" track aver "<<state.getState()(3)<<" mes "<<0.1*ahit->GetfImpact()<<" dR not biased "<<resid(0)
+	      <<" biased "<<0.1*ahit->GetfImpact()-fabs(state.getState()(3))<<" trk xyz "<<pos
+	      <<" vy/vz "<<mom.Y()/mom.Z()<<" sigy "<<sqrt(state2.getCov()(3,3))<<" sigvy "<<sqrt(state2.getCov()(1,1))<<endl;
+	  //	      <<" unbiased trk xyz "<<pos2<<" mom "<<mom2<<endl;
+	  GetHResidualUnbiased()->Fill(10*fabs(state.getState()(3)),10*resid(0));
+	  GetHResidualBiased()->Fill(10*fabs(state.getState()(3)),ahit->GetfImpact()-10*fabs(state.getState()(3)));
+	}else{
+	  cout<<ihit<<" track aver "<<state.getState()(3)<<" dY not biased "<<resid(1)
+	      <<" biased trk xyz "<<pos<<" mom "<<mom<<" sigy "<<sqrt(state.getCov()(4,4))
+	      <<" unbiased trk xyz "<<pos2<<" mom "<<mom2<<" sigy "<<sqrt(state2.getCov()(4,4))<<" sigvy "<<sqrt(state2.getCov()(2,2))<<endl;
+	  GetHPixelResidualUnbiased()->Fill(resid(1)*10);
+	}
+	// state.Print();
+	// cov.Print();
+	// state2.Print();
+	// cov2.Print();
+	
+	if(fDebug>9) {
+          std::cout<<jhit<<" at hit "<<pos<<" "<<mom<<endl;
+        }
+      }
+    }catch(Exception& e){
+      if(fDebug) std::cout<<"on getting points "<<e.what()<<std::endl;
+      fitstatus=false;
+    }
+    sumddist/=ngoodhits;
+    if(fDebug) std::cout<<" filtrated hits "<<numhits-ngoodhits<<" average ddist "<<sumddist/(0.4/150e-9)<<std::endl;
+  }
+  
+  
+  //-----------------------------------
+  //propagate to target
+  //-----------------------------------
+  if(fitstatus){
+
+    //force backward propagation
+    rep->setPropDir(-1);
+    //take first fitted point
+    TrackPoint* tp = fitTrack.getPointWithFitterInfo(0);
+    if (tp == NULL) {std::cout << "Track has no TrackPoint with fitterInfo!(but fitstatus ok?)"<<std::endl;}
+    KalmanFitterInfo* fi = static_cast<KalmanFitterInfo*>(tp->getFitterInfo(rep));
+    MeasuredStateOnPlane state;
+    TVector3 target0(0,0,-50);
+    
+    SharedPlanePtr plane(new DetPlane(TVector3(0,0,-50),TVector3(1,0,0),TVector3(0,1,0)));
+
+    //extrapolate rep to target plane
+    bool isattarget=true;
+    try{
+      state=fi->getFittedState(true);
+      rep->extrapolateToPlane(state,plane);
+    }catch(Exception& e){
+      if(fDebug) std::cout<<"on extrapolation to target "<<e.what()<<std::endl;
+      isattarget=false;
+    }
+    double tof_target=1e9;
+    if(isattarget){
+      tof_target=state.getTime();    
+      state.getPosMomCov(pos,mom,cov);
+    }
+    if(fDebug)
+      std::cout<<"target chi2 "<<fitStatus->getChi2()<<" nfailed "<<fitStatus->getNFailedPoints()
+               <<" P= "<<mom.Mag()*rep->getCharge(state)<<" fitok="<<fitstatus<<" pos "<<pos<<" "<<mom<<std::endl;
+  }
+
+  aTrack->Setx0(pos.X()*10);
+  aTrack->Seterr_x0(sqrt(cov(0,0))*10);
+  aTrack->Sety0(pos.Y()*10);
+  aTrack->Seterr_y0(sqrt(cov(1,1))*10);
+  aTrack->Setz0(pos.Z()*10);
+  aTrack->Seterr_z0(0.);
+  aTrack->Settheta(mom.Theta());
+  aTrack->Seterr_theta(0.);
+  aTrack->Setphi(mom.Phi());
+  aTrack->Seterr_phi(0.);
+  
+  //fill final information
+  aTrack->Setnhits(numhits);
+  aTrack->Setchi2(fitStatus->getChi2());
+  aTrack->Setdof(fitStatus->getNdf());
+  aTrack->Setngoodhits(ngoodhits);
+  aTrack->SetIsFitted(fitstatus);
+  
+  
+  delete fitter;
 }
 

@@ -9,6 +9,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
+#include "TTree.h"
+#include "TClonesArray.h"
 
 #include "generated/GMCTWaveformAnalysis_Base.h"
 
@@ -26,14 +28,21 @@ public:
 
 protected:
    // Event Methods
-   void Init();
-   void BeginOfRun();
-   void Event();
-   void EndOfRun();
-   void Terminate();
+   void   Init();
+   void   BeginOfRun();
+   void   Event();
+   void   EndOfRun();
+   void   Terminate();
+   void   LoadEvent(Int_t ev);
+   Int_t  FindPeaks(Int_t ndot, Double_t *signal);
+
+
+   TTree          *fDataTree; 
+   TClonesArray   *fBrDataWave;
 
 
    ClassDef(GMCTWaveformAnalysis,0)
+
 };
 
 #endif   // GMCTWaveformAnalysis_H

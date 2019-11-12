@@ -8,9 +8,14 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "TTree.h"
+#include "TBranch.h"
+#include "TMinuit.h"
 
-
+#include "util/Geometry.h"
 #include "generated/GMCTTrackFit_Base.h"
+
+class GMCRecoTracks;
 
 class GMCTTrackFit : public GMCTTrackFit_Base
 {
@@ -32,8 +37,26 @@ protected:
    void Event();
    void EndOfRun();
    void Terminate();
-   Int_t MinuitFit();
-   Int_t LeftRightMinuitFit();
+   void LoadEvent(Int_t ev);
+   void StoreReconstructedTrack();
+   Bool_t PixelReconstruction();
+   Bool_t ChamberReconstruction();
+   Bool_t Fit(GMCRecoTracks *aTrack);
+
+  TList *pixel_0,*pixel_1;
+   TTree          *fDataTree;
+//   TClonesArray   *fBrHitsDC;
+   TClonesArray   *fBrHitsPX;
+   Geometry       *fGeometry;
+   TMinuit        *fMinuit;
+
+
+   Double_t       fTheta;
+   Double_t       fPhi;
+   Double_t       fVertX;
+   Double_t       fVertY;
+//   Double_t       fChiSquare;
+//   Double_t       fStatus;  
 
    ClassDef(GMCTTrackFit,0)
 };

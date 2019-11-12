@@ -15,7 +15,7 @@
 // This task accesses the following folders :                                 //
 //     ODB                                                                    //
 //     Event                                                                  //
-//     Hit                                                                    //
+//     DCHHit                                                                 //
 //                                                                            //
 //                                                                            //
 //                                                                            //
@@ -49,11 +49,14 @@ ClassImp(GMCTReadData)
 void GMCTReadData::Init()
 {
 
+  fGeom = Geometry::GetInstance();
+
+  /***********
  if(gAnalyzer->GetMCHitSize()==0)
     cout<<"we are running only on real data! MCHit task is not active"<<endl;
   if(gAnalyzer->GetMCTrackSize()==0)
     cout<<"we are running only on real data! MCTrack task is not active"<<endl;
-  
+  ****************/
 }
 
 //______________________________________________________________________________
@@ -62,6 +65,7 @@ void GMCTReadData::BeginOfRun()
 
    cout << "Run Number : " << gAnalyzer->GetODB()->GetRunNumber() << endl;
 
+   cout<<"leggo file "<<(gAnalyzer->GetGSP()->GetCablingFile()).Data()<<endl;
 
 
 }
@@ -72,7 +76,6 @@ void GMCTReadData::Event()
 
   DWORD data;
 
-  Geometry *Geom = Geometry::GetInstance();
 
   /////TDC
   cout<< "# TDC hits: " << gAnalyzer->GetMidasDAQ()->GetTDC0BankEntries()<<endl;
@@ -93,11 +96,11 @@ void GMCTReadData::Event()
 
     cout<<"channel# "<<chan << "  " << time <<endl;
 
-    if(Geom->GetWireIndex(chan) == 0){ ///REFERENCE TIME
+    if(fGeom->GetWireIndex(chan) == 0){ ///REFERENCE TIME
       time0=time;
       gAnalyzer->GetEvent()->SetTDCRefTime(time0*TDCSCALE);
     }
-    else if(Geom->GetWireIndex(chan) > 0){
+    else if(fGeom->GetWireIndex(chan) > 0){
       times[nHit]=time;
       channels[nHit]=chan;
       nHit++;
@@ -105,8 +108,8 @@ void GMCTReadData::Event()
   }
 
   //FILL HITS
-
-  gAnalyzer->SetHitSize(0);
+  /*******************
+  gAnalyzer->SetDCHHitSize(0);
 
   set<Int_t> done;
 
@@ -117,16 +120,92 @@ void GMCTReadData::Event()
 
     if(!done.count(tube_nr) && t_meas > -10 && t_meas < 250){
 
-      gAnalyzer->SetHitSize(gAnalyzer->GetHitSize()+1);
+      gAnalyzer->SetDCHHitSize(gAnalyzer->GetHitSize()+1);
 
-      gAnalyzer->GetHitAt(done.size())->Sett_meas(t_meas);
-      gAnalyzer->GetHitAt(done.size())->Settube_nr(tube_nr);
+      //      gAnalyzer->GetDCHHitAt(done.size())->Sett_meas(t_meas);
+      //      gAnalyzer->GetDCHHitAt(done.size())->Settube_nr(tube_nr);
 
       done.insert(tube_nr);
 
     }
 
   }
+  ***************************/
+  ///////DRS
+  GMCEvent *event = gAnalyzer->GetEvent();
+  event->SetDRSWaveformSize(8);
+
+  float vdata, tdata;
+
+  for(Int_t k=0;k<2;k++){
+
+    for(Int_t i=0;i<4;i++){
+      
+      Waveform *wfdrs = event->GetDRSWaveformAt(4*k+i);
+
+      Double_t tmpt[1024];
+      Double_t tmpv[1024];
+      
+      for(Int_t j=0;j<1024;j++){
+	
+	if(k==0){
+	  tdata = gAnalyzer->GetMidasDAQ()->GetDRS0BankAt(2048*i+2*j);
+	  vdata = gAnalyzer->GetMidasDAQ()->GetDRS0BankAt(2048*i+2*j+1);
+	}
+	else{
+	  tdata = gAnalyzer->GetMidasDAQ()->GetDRS1BankAt(2048*i+2*j);
+	  vdata = gAnalyzer->GetMidasDAQ()->GetDRS1BankAt(2048*i+2*j+1);
+	}
+
+	tmpt[j] = tdata;
+	tmpv[j] = vdata;
+	
+	//cout << tdata << "  " << vdata << endl;
+
+	//cout << "DRS " << k << "  " << i << "  " << j << "  " << tmpt[j] << "  " << tmpv[j] << endl;
+
+      }
+      
+      wfdrs->SetNPoints(1024);
+      wfdrs->Set(1024,tmpt,tmpv);
+
+    }
+
+  }
+
+  //////MEDIPIX
+  
+  int npix0 = gAnalyzer->GetMidasDAQ()->GetPIX0BankAt(0);
+
+  event->SetModuPix0Size(npix0);
+
+  int idPixel;
+  for(Int_t i=1;i<=npix0;i++){
+
+    GMCMPXHit *aHit = event->GetModuPix0At(i-1);
+    aHit->SetfNrMPX(0);
+    idPixel = gAnalyzer->GetMidasDAQ()->GetPIX0BankAt(i);
+    aHit->SetfnrYpixel(idPixel/256);
+    aHit->SetfnrXpixel(idPixel%256);
+    //    cout << "pix0 " << idPixel <<" "<<idPixel%256<<"  "<<idPixel/256<<endl;
+
+  }
+
+  int npix1 = gAnalyzer->GetMidasDAQ()->GetPIX1BankAt(0);
+  event->SetModuPix1Size(npix1);
+
+  for(Int_t i=1;i<=npix1;i++){
+
+    GMCMPXHit *aHit = event->GetModuPix1At(i-1);
+    aHit->SetfNrMPX(1);
+    idPixel = gAnalyzer->GetMidasDAQ()->GetPIX1BankAt(i);
+    aHit->SetfnrYpixel(idPixel/256);
+    aHit->SetfnrXpixel(idPixel%256);
+    //    cout << "pix1 " << idPixel <<" "<<idPixel%256<<"  "<<idPixel/256<<endl;
+
+  }
+
+  ////////////
 
   /////OSCILLOSCOPE
 
@@ -142,7 +221,7 @@ void GMCTReadData::Event()
   float SamplingFreq = FREQ[((data>>2) & 0x3)];
   int CentralTube = (data>>4) & 0xF;
 
-  cout << CentralTube << endl;
+  //cout << CentralTube << endl;
 
   if(CentralTube!=gAnalyzer->GetGSP()->Getcentral_tube()){
 
@@ -158,15 +237,36 @@ void GMCTReadData::Event()
   float unit3 = UNIT[(data>>18) & 0x3] * 8./255.;
   float unit4 = UNIT[(data>>22) & 0x3] * 8./255.;
   int NChanOsc = 4;
-  ////
 
-  GMCEvent *event = gAnalyzer->GetEvent();
+  set<int> index;
+  for(Int_t i=0;i<4;i++) index.insert(i);
+
+
+  ////CALORIMETER ALWAYS IN WF0
+  /*
+  int icalo;
+  if(((data>>8) & 0x3) == 2) icalo = 0;
+  else if(((data>>12) & 0x3) == 2) icalo = 1;
+  else if(((data>>16) & 0x3) == 2) icalo = 2;
+  else icalo = 3;
+
+  index.erase(icalo);
+  
   event->SetOscWaveformSize(NChanOsc);
 
+  set<int>::iterator it=index.begin();
+  Waveform *wf0 = event->GetOscWaveformAt(icalo);
+  Waveform *wf1 = event->GetOscWaveformAt(*it); it++;
+  Waveform *wf2 = event->GetOscWaveformAt(*it); it++;
+  Waveform *wf3 = event->GetOscWaveformAt(*it);
+  */
+
+  event->SetOscWaveformSize(NChanOsc);
   Waveform *wf0 = event->GetOscWaveformAt(0);
   Waveform *wf1 = event->GetOscWaveformAt(1);
   Waveform *wf2 = event->GetOscWaveformAt(2);
   Waveform *wf3 = event->GetOscWaveformAt(3);
+  
 
   Double_t *time = new Double_t[fNCounts];
 
@@ -176,7 +276,7 @@ void GMCTReadData::Event()
   Double_t *tmpwf3 = new Double_t[fNCounts];
 
   Int_t sample = 0;
-  
+
   for(int i=0;i<fNCounts;i++) {
 
     time[i] = i/SamplingFreq;

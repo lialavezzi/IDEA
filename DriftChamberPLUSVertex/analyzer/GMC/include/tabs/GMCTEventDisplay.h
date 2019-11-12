@@ -24,7 +24,7 @@
 #include <TF1.h>
 #include "TH2F.h"
 #include "TEllipse.h"
-#include "TLine.h"
+#include "TBox.h"
 #include "TGraph.h"
 #include "TVector.h"
 #include "TVector3.h"
@@ -49,9 +49,10 @@ private:
    TGraph *grMC;
    
    TH2F *htmp;
+   TH2F *hpix;
 
    TEllipse **el;
-   TEllipse **iso;
+   TBox **bx;
    TLine **li;
 
    Int_t nl;

@@ -11,7 +11,7 @@ G4EXLIB := true
 #LOCALDIR := ${PWD}
 
 ifndef G4INSTALL
-  G4INSTALL = ../../../..
+  G4INSTALL = /cvmfs/geant4.cern.ch/geant4/10.4.p01/x86_64-centos7-gcc63-opt-MT
 endif
 
 SUBDIRS = EXCEP GEOMSRVC SVX PSHW CDCH
@@ -19,7 +19,6 @@ SUBSINCL :=$(foreach dir,$(SUBDIRS), -I${G4WORKDIR}/$(dir)/include)
 SUBSFLAGS :=$(foreach dir,$(SUBDIRS), -l$(dir))
 
 include $(G4INSTALL)/config/architecture.gmk
-
 #ifdef G4INSTBASE
 #  G4LIB :=${G4LIB}/../lib64
 #else
@@ -35,7 +34,7 @@ endif
 #endif
 
 #ADD ROOT SETTINGS
-#CPPFLAGS += -I$(ROOTSYS)/include/root
+#CPPFLAGS += -I$(ROOTSYS)/include/root 
 ROOTINC := -I$(shell $(ROOTSYS)/bin/root-config --incdir)
 CPPFLAGS += ${ROOTINC}
 ROOTFLAGS := $(shell $(ROOTSYS)/bin/root-config --libs) -lGui -lHtml -lMinuit
@@ -45,7 +44,7 @@ DICTIONARYPATH := ${G4WORKDIR}/tmp/${G4SYSTEM}/${G4TARGET}/dictionary
 SRCFORDICT := GEOMSRVC/src/GMCG4TrackerHit.cc GEOMSRVC/src/GMCG4Particle.cc
 
 #GCCXMLPATH := /usr/bin
-#G4INCLUDE := /pro/geant4/geant4.10.p01-install/include/Geant4
+#G4INCLUDE := /cvmfs/geant4.cern.ch/geant4/10.4.p01/x86_64-centos7-gcc63-opt-MT/include/Geant4
 
 #ADD GMC SETTINGS
 GMCLIB := GMCAnalyzer
