@@ -4,14 +4,20 @@ Geant4 simulation of the IDEA Detector
 *******************************
 
 
- **TRACKER - Drift chamber + vertex**
+ **TRACKER - Drift chamber + vertex detector**
 ---
 
--  cd simulation
+-  Enter in simulation/ and edit envG4GMC.sh to change PRJBASE
+   ```
+   cd simulation 
+   ```
+
+   Then load the environment variables:
    ```
    source envG4GMC.sh
    ```
-   cd g4GMC	
+
+-  To compile the simulation part:
    ```
-   make clean_all; make all	
+   cd g4GMC; make clean_all; make all	
    ```
