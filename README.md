@@ -11,9 +11,14 @@ Geant4 simulation of the IDEA Detector
    ```
    cd simulation 
    ```
-
-   Then load the environment variables:
+-  Enter in analyzer/ and edit envGMC.sh to change PRJBASE
    ```
+   cd ../analyzer 
+   ```
+   
+-  Then come back to simulation and load the environment variables:
+   ```
+   cd ../simulation
    source envG4GMC.sh
    ```
 
