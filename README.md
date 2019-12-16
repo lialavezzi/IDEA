@@ -4,10 +4,11 @@ Geant4 simulation of the IDEA Detector
 *******************************
 
 
- **TRACKER - Drift chamber + vertex detector**
+ **TRACKER - Drift chamber + vertex detector** 
 ---
+(DIRECTORY = DriftChamberPlusVertex)
 
--  Enter in simulation/ and edit envG4GMC.sh to change PRJBASE; then move in analyzer and edit envGMC.sh to change PRJBASE
+-  Enter in simulation/ and edit envG4GMC.sh to change PRJBASE; then move in analyzer/ and edit envGMC.sh to change PRJBASE
    
 -  To compile the simulation part:
    ```
@@ -34,8 +35,8 @@ Geant4 simulation of the IDEA Detector
    ```
    N.B. The previous compilation of the analyzer part is needed because of some dependencies required.
    
--  If everything works correctly, two executables are created in simulation/g4GMC/bin/Linux-g++: *g4GMC* and *readHits*
-   To generate some events:
+-  If everything works correctly, two executables are created in simulation/g4GMC/bin/Linux-g++: *g4GMC* and *readHits*     
+   To run the simulation step and generate events:
    ```
    ./bin/Linux-g++/g4GMC g4mac/runPFix-1.mac geom_IDEA.txt 1 pathTo/outputDIR
    ```
