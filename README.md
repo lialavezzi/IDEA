@@ -36,7 +36,14 @@ Geant4 simulation of the IDEA Detector
    N.B. The previous compilation of the analyzer part is needed because of some dependencies required.
    
 -  If everything works correctly, two executables are created in simulation/g4GMC/bin/Linux-g++: *g4GMC* and *readHits*     
-   To run the simulation step and generate events:
+   Now, before running the simulation, the IDEA geometry has to be initialized and exported in a gdml format. 
+   Edit the geometry configuration file:
+    ```
+   simulation/g4GMC/geom_IDEA.txt	
+   ```
+   setting TRUE the boolean variable *writeGDML* and choosing the gdml file name.
+   
+   After that, to run the simulation step and generate events:
    ```
    ./bin/Linux-g++/g4GMC g4mac/runPFix-1.mac geom_IDEA.txt 1 pathTo/outputDIR
    ```
