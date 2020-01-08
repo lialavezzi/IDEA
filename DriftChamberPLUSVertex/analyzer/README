@@ -22,11 +22,11 @@ The main tools of GMCAnalyzer are:
 ========================
 To install the software
 ========================
-  1) Set the enviroment variables by the file envDeps_csh or envDeps_sh
+  1) Set the enviroment variables by the file envMidasDAQ.sh
      (check the right path for LD_LIBRARY_PATH that should include the path for MonteCarlo lib and midas lib)
      
   2) Compile the source code typing the command
-     $ROMESYS/bin/romebuilder.exe -i GMC.xml -midas
+     $ROMESYS/bin/romebuilder.exe -i GMC.xml
      
  
 ====================
@@ -49,13 +49,13 @@ To use the software
       ii)  PXHits  which contains the data coming out from the pixel detector
       iii) DCWaveform  where the waveforms related to the hits are stored 
       
-     Is possible to switch on or off a task editing the geant4MC.xml file and changing the its status in <Task> section.
+     Is possible to switch on or off a task editing the geant4MC.xml file and changing its status in <Task> section.
      
    3) Run the reconstruction
      ./gmcanalyzer.exe -i recoMC.xml -r 1 -e 1-100
      
      Based on the TMinuit tool, the task performs the event reconstruction. Each track is recontructed in
-     two step:
+     two steps:
       a) taking advantage of pixel detector estimates the initial track parameters (vertex and direction)
       b) calling TMinuit to reconstruct the track in drift chamber
       
