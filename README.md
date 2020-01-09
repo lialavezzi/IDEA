@@ -68,8 +68,8 @@ Geant4 simulation of the IDEA Detector
   
  - At the end, in order to run the analyzer and the reconstruction, launch (from IdeaTracker_TEST):
    ```
-   ${PRJBASE}/analyzer/GMC/gmcanalyzer.exe -i geant4MC-IDEA.xml -r 1 -e 1-100
-   ${PRJBASE}/analyzer/GMC/gmcanalyzer.exe -i geant4MC-IDEA-fit.xml -r 1 -e 1-100
+   ${PRJBASE}/analyzer/GMC/gmcanalyzer.exe -i geant4MC-IDEA.xml -r 1 -e 1-$nEvents
+   ${PRJBASE}/analyzer/GMC/gmcanalyzer.exe -i geant4MC-IDEA-fit.xml -r 1 -e 1-$nEvents
    ```
    or
     ```
