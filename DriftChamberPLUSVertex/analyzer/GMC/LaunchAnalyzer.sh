@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo -e "*****  Scripting to run anylazer jobs on $1 runs *****\n "
+echo -e "*****  Scripting to run analyzer jobs on $1 runs *****\n "
 
 nRuns=$1
 nFrstRun=$2
