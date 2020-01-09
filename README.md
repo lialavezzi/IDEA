@@ -8,7 +8,7 @@ Geant4 simulation of the IDEA Detector
 ---
 (DIRECTORY = DriftChamberPlusVertex)
 
--  Enter in simulation/ and edit envG4GMC.sh to change PRJBASE; then move in analyzer/ and edit envGMC.sh to change PRJBASE
+-  Enter in simulation/ and edit *envG4GMC.sh* to change PRJBASE; then move in analyzer/ and edit *envGMC.sh* to change PRJBASE
    
 -  To compile the simulation part:
    ```
@@ -43,7 +43,7 @@ Geant4 simulation of the IDEA Detector
    ```
    setting TRUE the boolean variable *writeGDML* and choosing the gdml file name.
    
-   After that, create an output directory for your work under the *simulation* dir. To run the simulation step and generate events:
+   After that, create an output directory for your work under the simulation/ directory. To run the simulation step and generate events:
    ```
    ./bin/Linux-g++/g4GMC g4mac/runPFix-1.mac geom_IDEA.txt 1 pathTo/outputDIR
    ```
@@ -64,7 +64,7 @@ Geant4 simulation of the IDEA Detector
    ```
    sed -e '/copynumber.*tubeFD_/,+4d' -e '/copynumber.*tubeSD_/,+4d' g4-IDEA.gdml > g4-IDEA_reco.gdml
    ```
-   and move the gdml files in *simulation/g4GMC/config*. 
+   and move the gdml files in this directory: simulation/g4GMC/config/. 
    
  - At the end, to run the analyzer and the reconstruction:
    1) Edit *geant4MC-IDEA.xml* and *geant4MC-IDEA-fit.xml* and change *InputFilePath*; 
