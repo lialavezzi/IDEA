@@ -41,7 +41,7 @@ Geant4 simulation of the IDEA Detector
     ```
    simulation/g4GMC/geom_IDEA.txt	
    ```
-   setting TRUE the boolean variable *writeGDML* and choosing the gdml file name.
+   setting TRUE the boolean variable *writeGDML* and choosing the gdml file name (e.g. *g4-IDEA.gdml*).
    
    After that, create an output directory for your work under the simulation/ directory. To run the simulation step and generate events:
    ```
