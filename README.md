@@ -76,5 +76,7 @@ Geant4 simulation of the IDEA Detector
    ${PRJBASE}/analyzer/GMC/LaunchAnalyzer.sh $1 $2 geant4MC-IDEA.xml hits
    ${PRJBASE}/analyzer/GMC/LaunchAnalyzer.sh $1 $2 geant4MC-IDEA-fit.xml reco
    ```
-   All data information are stored in *MCHits#.root* and the reconstruction data are stored in *RecoData#.root*, respectively.
+   All data information are stored in *MCHits#.root* and the reconstructed data are stored in *RecoData#.root*, respectively. 
+   RecoData.root contains only the branch related to the reconstructed tracks. (The branches for hits in drift chamber and pixel detector are not active.)  
+
  
