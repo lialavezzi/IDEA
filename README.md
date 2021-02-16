@@ -1,5 +1,27 @@
-test
-...
+# THIS SPECIFIC VERSION OF THE CODE
+It is devoted to move:
+<ul>
+   <li> from env set by hand to using the key4hep stack </li>
+   <li> from GNUmakefile to CMakeList.txt </li>
+   <li> from standalone hits to EDM hits </li>
+</ul>
+Working on II; for the moment, only simulation is considered.
+
+To compile:
+```
+cd IDEA/DriftChamberPLUSVertex/simulation/
+```
+modify the PRJBASE in env.sh according to your installation
+```
+source end.sh
+cd g4GMC/
+mkdir build
+cd build/
+cmake ../.
+```
+
+*******************************
+original README file text:
 
 # IDEA
 Geant4 simulation of the IDEA Detector
