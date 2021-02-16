@@ -5,7 +5,7 @@
 
 #include "CellDetail.hh"
 
-using namespace std;
+//using namespace std;
 
 namespace cdch {
 

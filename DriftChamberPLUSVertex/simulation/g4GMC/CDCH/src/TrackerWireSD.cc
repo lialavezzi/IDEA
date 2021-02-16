@@ -15,7 +15,7 @@
 #include "G4Step.hh"
 #include "G4ios.hh"
 
-using namespace std;
+// using namespace std;
 
 namespace cdch {
 
@@ -41,7 +41,7 @@ namespace cdch {
                     e<< "Maximum number of particles reached "
                         << SensitiveDetectorName
                         << ": "
-                        << _currentSize << endl;
+		     << _currentSize << std::endl;
                     e.error();
                   }
                   return false;
@@ -52,10 +52,10 @@ namespace cdch {
           G4double step  = aStep->GetStepLength();
           //G4double idep  = edep-nidep;
 
-          if ( verboseLevel>=2 )  cout<<"edep "<<edep<<" nidep "<<nidep<<" step "<<step<<endl;
+          if ( verboseLevel>=2 )  std::cout<<"edep "<<edep<<" nidep "<<nidep<<" step "<<step<<std::endl;
           // I am not sure why we get these cases but we do.  Skip them.
           if ( (edep == 0. /*|| idep == 0.*/)/*&& step == 0.*/ ) {
-                  if ( verboseLevel>=2 )  cout<<"Skipped"<<endl;
+                  if ( verboseLevel>=2 )  std::cout<<"Skipped"<<std::endl;
                   return false;
           }
 
@@ -65,8 +65,8 @@ namespace cdch {
           G4int motherCopyNo = preStepPoint->GetTouchableHandle()->GetReplicaNumber(1);
 
           if ( verboseLevel>=2 )  {
-        	  cout<<"Step vol name "<<aStep->GetTrack()->GetVolume()->GetName()<<endl;
-        	  cout<<"Step vol copyNo "<<" mother copyNo "<<motherCopyNo<<endl;
+        	  std::cout<<"Step vol name "<<aStep->GetTrack()->GetVolume()->GetName()<<std::endl;
+        	  std::cout<<"Step vol copyNo "<<" mother copyNo "<<motherCopyNo<<std::endl;
           }
 
           // Add the hit to the framework collection.

@@ -15,7 +15,7 @@
 
 #include <string>
 
-using namespace std;
+//using namespace std;
 
 namespace cdch {
 
@@ -39,7 +39,7 @@ namespace cdch {
                           e<< "Maximum number of particles reached "
                               << SensitiveDetectorName
                               << ": "
-                              << _currentSize << endl;
+			   << _currentSize << std::endl;
                           e.error();
                   }
                   return false;
@@ -50,15 +50,15 @@ namespace cdch {
           G4double step  = aStep->GetStepLength();
           //G4double idep  = edep-nidep;
 
-          if ( verboseLevel>=2 )  cout<<"edep "<<edep<<" nidep "<<nidep<<" step "<<step<<endl;
+          if ( verboseLevel>=2 )  std::cout<<"edep "<<edep<<" nidep "<<nidep<<" step "<<step<<std::endl;
           // I am not sure why we get these cases but we do.  Skip them.
           if ( (edep == 0. /*|| idep == 0.*/)/*&& step == 0.*/ ) {
-                  if ( verboseLevel>=2 )  cout<<"Skipped"<<endl;
+	    if ( verboseLevel>=2 )  std::cout<<"Skipped"<<std::endl;
                   return false;
           }
 
-          string volName = aStep->GetTrack()->GetVolume()->GetName();
-          if ( verboseLevel>=2 )  cout<<"Step vol name "<<aStep->GetTrack()->GetVolume()->GetName()<<endl;
+	  std::string volName = aStep->GetTrack()->GetVolume()->GetName();
+          if ( verboseLevel>=2 )  std::cout<<"Step vol name "<<aStep->GetTrack()->GetVolume()->GetName()<<std::endl;
 
           _superlayer=atoi(volName.substr(5,2).c_str());
           _ring=atoi(volName.substr(8,2).c_str());
@@ -67,12 +67,12 @@ namespace cdch {
           }
 
           try {
-            if ( verboseLevel>=2 )  cout<<"SuperLayer "<<_superlayer<<" Ring "<<_ring<<endl;
+            if ( verboseLevel>=2 )  std::cout<<"SuperLayer "<<_superlayer<<" Ring "<<_ring<<std::endl;
               cdchtracker->getCellGeometryHandle()->SelectCell(_superlayer,_ring,0);
                   _nwires=cdchtracker->getCellGeometryHandle()->GetLayer()->nCells();
                   _Dphi=CLHEP::twopi/_nwires;
           }catch (std::exception &e) {
-                  cerr<<e.what();
+	    std::cerr<<e.what();
                   _nwires=0;
                   _Dphi=0.0;
           }
@@ -231,7 +231,7 @@ namespace cdch {
 
                   return true;
           }catch (std::exception &e) {
-                  cerr<<e.what();
+	    std::cerr<<e.what();
                   return false;
           }
 

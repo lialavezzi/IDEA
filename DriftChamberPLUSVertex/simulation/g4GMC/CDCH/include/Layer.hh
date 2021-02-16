@@ -2,7 +2,6 @@
 //
 // Original author G. Tassielli
 //
-
 #ifndef Layer_hh
 #define Layer_hh
 
@@ -10,8 +9,8 @@
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
-#include <LayerDetail.hh>
-#include <LayerId.hh>
+#include "LayerDetail.hh"
+#include "LayerId.hh"
 
 // Framework includes
 //#include "messagefacility/MessageLogger/MessageLogger.h"
@@ -22,7 +21,7 @@
 
 namespace cdch {
 
-class Layer{
+class Layer {
 
   friend class SuperLayer;
   friend class CDCHDevice;

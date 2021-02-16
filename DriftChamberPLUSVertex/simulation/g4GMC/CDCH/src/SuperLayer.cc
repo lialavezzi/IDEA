@@ -8,7 +8,7 @@
 
 #ifndef __CINT__
 
-using namespace std;
+// using namespace std;
 
 using CLHEP::Hep3Vector;
 

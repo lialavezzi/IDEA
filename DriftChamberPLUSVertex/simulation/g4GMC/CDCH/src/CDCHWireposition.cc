@@ -20,7 +20,7 @@
 #include <iostream>
 #include <sys/stat.h>
 
-using namespace std;
+//using namespace std;
 
 namespace cdch {
 //_____________________________________________________________________________
@@ -210,7 +210,7 @@ void CDCHWireposition::WirePosAtZ(Float_t z, Float_t *pos){
 //  }
 
   if (TMath::Abs(z)>DCHEndcapZ) {
-    cout<<"z exceeds maximum length\n";
+    std::cout<<"z exceeds maximum length\n";
     return;
   }
 

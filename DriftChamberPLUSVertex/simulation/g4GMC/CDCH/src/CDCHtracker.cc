@@ -8,7 +8,7 @@
 
 #include "manageException.hh"
 
-using namespace std;
+// using namespace std;
 
 namespace cdch {
 

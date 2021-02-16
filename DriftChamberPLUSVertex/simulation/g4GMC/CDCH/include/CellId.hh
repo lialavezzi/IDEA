@@ -5,6 +5,8 @@
 #ifndef CellId_hh
 #define CellId_hh
 
+#include "LayerId.hh"
+
 //#include "WireId.hh"
 #include <iostream>
 

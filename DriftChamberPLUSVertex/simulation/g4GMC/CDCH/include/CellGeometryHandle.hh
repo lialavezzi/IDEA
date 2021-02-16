@@ -6,7 +6,7 @@
 #ifndef CellGeometryHandle_hh
 #define CellGeometryHandle_hh
 
-//#include <Layer.hh>
+#include "Layer.hh"
 #include "CLHEP/Vector/ThreeVector.h"
 //#include "Cell.hh"
 #include "CLHEP/Geometry/Point3D.h"

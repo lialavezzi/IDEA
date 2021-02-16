@@ -41,12 +41,12 @@
 //#include <iostream>
 //#include <sstream>
 
-using namespace std;
+//using namespace std;
 
 namespace cdch {
 
 bool checkOverlap, detailedCheck;
-string trackerName("CDCHTrackerMother");
+std::string trackerName("CDCHTrackerMother");
 
 VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, double zOff*/ ){
 
@@ -196,7 +196,7 @@ VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, doub
                 double innerWallHaltLength=0.0;
                 double outerWallInnerRadiusWithElec=0.0;
 
-                multimap<Wall::Walltype,boost::shared_ptr<Wall> >::iterator walls_it;
+                std::multimap<Wall::Walltype,boost::shared_ptr<Wall> >::iterator walls_it;
                 for ( walls_it=cdchtracker->getWalls()->begin() ; walls_it != cdchtracker->getWalls()->end(); walls_it++ ) {
                         boost::shared_ptr<Wall> iwall = walls_it->second;
                         if (iwall->getType() == Wall::outer) {
@@ -307,7 +307,7 @@ VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, doub
                         double oringZEnd = oringCenter+oringWidth;
                         double extraInnWallLength = cdchtracker->maxEndCapDim() - oringZEnd;
                         extraInnWallLength *= 0.5;
-                        G4VSolid* extraInnerWallShape = new G4Tubs("extraInnerWall", ((G4Tubs*)trackerInfo.solid)->GetRMin(),innerWallOuterRadius,extraInnWallLength,0.0,360.0*CLHEP::degree);
+                        G4VSolid* extraInnerWallShape = new G4Tubs("extraInnerWall", ((G4Tubs*)trackerInfo.solid)->GetInnerRadius(),innerWallOuterRadius,extraInnWallLength,0.0,360.0*CLHEP::degree);
                         G4LogicalVolume*   extraInnerWallVol = new G4LogicalVolume(extraInnerWallShape,matMother,"extraInnerWallVol",0,0,0);
 
                         for ( walls_it=cdchtracker->getWalls()->begin() ; walls_it != cdchtracker->getWalls()->end(); walls_it++ ) {
@@ -491,7 +491,7 @@ VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, doub
 
                         SuperLayer *SLayer = cdchtracker->getSuperLayer(iSl);
                         if ( debugLayer ) {
-                          cout<<"Super Layer: "<<SLayer->Id()<<endl;
+                          std::cout<<"Super Layer: "<<SLayer->Id()<<std::endl;
                         }
 
                         for (int iLy=0; iLy < SLayer->nLayers(); iLy++ ){
@@ -514,11 +514,11 @@ VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, doub
                                 }
 
                                 if (debugLayer ) {
-                                  cout<<"Layer "<< ily->Id()<<" Layer type "<<ily->getLayerType()<<" nCell "<<ily->nCells()<<endl;
-                                  cout<<"Vol name "<<vol<<endl;
-                                  cout<<ily->Id()<<" IR "<<ily->getDetail()->centerInnerRadiusRing()<<" OR "<<
+                                  std::cout<<"Layer "<< ily->Id()<<" Layer type "<<ily->getLayerType()<<" nCell "<<ily->nCells()<<std::endl;
+                                  std::cout<<"Vol name "<<vol<<std::endl;
+                                  std::cout<<ily->Id()<<" IR "<<ily->getDetail()->centerInnerRadiusRing()<<" OR "<<
                                       ily->getDetail()->centerOuterRadiusRing()<<" SI "<<ily->getDetail()->stereoAngleInnerRing()<<" SO "<<
-                                      ily->getDetail()->stereoAngleOuterRing()<<" HL "<<ily->getDetail()->halfLength()<<endl;
+                                      ily->getDetail()->stereoAngleOuterRing()<<" HL "<<ily->getDetail()->halfLength()<<std::endl;
 
                                 //cout<<ily->getDetail()->centerOuterRadiusRing()<<" "<<sqrt( square(ily->getDetail()->centerOuterRadiusRing()) +
                                 //                                                square(ily->getDetail()->halfLength()*tan(ily->getDetail()->stereoAngleOuterRing())) ) <<" "<< outerWallInnerRadius<<endl;
@@ -622,7 +622,7 @@ VolumeInfo CDCHtrackerBuilder::constructTracker( G4LogicalVolume* mother/*, doub
                                 0,
                                 checkOverlap);
 
-                if ( checkOverlap ) { cout<<"CDCH Overlap Checking "<<trackerInfo.physical->CheckOverlaps(100000,0.0001,true)<<endl; }
+                if ( checkOverlap ) { std::cout<<"CDCH Overlap Checking "<<trackerInfo.physical->CheckOverlaps(100000,0.0001,true)<<std::endl; }
         }
 
         return trackerInfo;
@@ -781,7 +781,7 @@ double CDCHtrackerBuilder::constructSpiderWeb(G4LogicalVolume* localMother, crd:
         G4Material* spdWebMat =  gmc::findMaterialOrThrow( config.getString("cdch.spdWebSpokeMaterial") );
 
         int spdWebSpokesNumber = config.getInt("cdch.spdWebSpokesNumber");
-        vector<double> spdWebSpokeFacePntsX, spdWebSpokeFacePntsY;
+        std::vector<double> spdWebSpokeFacePntsX, spdWebSpokeFacePntsY;
         config.getVectorDouble("cdch.spdWebSpokeFacePntsX",spdWebSpokeFacePntsX);
         config.getVectorDouble("cdch.spdWebSpokeFacePntsY",spdWebSpokeFacePntsY);
         if (spdWebSpokeFacePntsX.size()!=spdWebSpokeFacePntsY.size()) {
@@ -849,7 +849,7 @@ void CDCHtrackerBuilder::constructWireAnchoring(G4LogicalVolume* localMother, cr
         GeomHandle<CDCHtracker> cdchtracker;
 
         bool isDownStream = localMother->GetName().contains("_R");
-        string endCapSide;
+        std::string endCapSide;
         if (isDownStream) {
                 endCapSide = "_R";
         } else {
@@ -1924,7 +1924,7 @@ void CDCHtrackerBuilder::constructStepLimiters(){
 
   }
   G4VPhysicalVolume *iDau;
-  cout<<"N CDCH daughter: "<<tracker->GetNoDaughters()<<endl;
+  std::cout<<"N CDCH daughter: "<<tracker->GetNoDaughters()<<std::endl;
   for (int iDaughter=0; iDaughter<tracker->GetNoDaughters(); iDaughter++){
           iDau = tracker->GetDaughter(iDaughter);
       if (!iDau) break;
@@ -1932,7 +1932,7 @@ void CDCHtrackerBuilder::constructStepLimiters(){
           if ( iDau->GetName().contains("gvolS") || iDau->GetName().contains("wvolS") ) iDau->GetLogicalVolume()->SetUserLimits(stepLimit);
   }
 
-  cout<<"CDCH Step limits set"<<endl;
+  std::cout<<"CDCH Step limits set"<<std::endl;
 
 
 }

@@ -4,7 +4,7 @@
 
 #include "WireDetail.hh"
 
-using namespace std;
+// using namespace std;
 
 namespace cdch {
 

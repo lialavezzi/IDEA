@@ -34,18 +34,18 @@ using CLHEP::Hep3Vector;
 using CLHEP::HepRotationY;
 using CLHEP::HepRotationZ;
 
-using namespace std;
+// using namespace std;
 
 namespace cdch {
 
 void cellPrinter( const Cell& s){
-        cout << s.Id() << endl;
+        std::cout << s.Id() << std::endl;
 }
 
 //void cellPrinter2( const Cell* s, int& i){
-//        cout << s->Id() <<  " | "
+//        std::cout << s->Id() <<  " | "
 //                        << s->hack << " "
-//                        << ++i << endl;
+//                        << ++i << std::endl;
 //}
 //
 //void cellHacker( Cell* s, int& i){
@@ -53,7 +53,7 @@ void cellPrinter( const Cell& s){
 //}
 
 void layerPrinter( const SuperLayer& l){
-        cout << "    Layer: " << l.Id() << endl;
+        std::cout << "    Layer: " << l.Id() << std::endl;
 }
 
 // Constructor that gets information from the config file instead of
@@ -157,17 +157,17 @@ CDCHMaker::CDCHMaker( crd::SimpleConfig const& config):
         _outGWireDiameter*=2.0;
 
 
-        _walls.insert( pair<Wall::Walltype,Wall*>(Wall::inner,new Wall(Wall::inner)) );
+        _walls.insert( std::pair<Wall::Walltype,Wall*>(Wall::inner,new Wall(Wall::inner)) );
         nWallShells    = config.getInt("cdch.nInnerWallShells");
         std::vector<std::string> *tempWallMaterialsName = new std::vector<std::string>();
         std::vector<double> *tempWallShellsThicknesses = new std::vector<double>();
         config.getVectorString("cdch.innerWallMaterials", *tempWallMaterialsName, nWallShells);
         config.getVectorDouble("cdch.innerWallShellsThicknesses", *tempWallShellsThicknesses, nWallShells);
-        multimap<Wall::Walltype,Wall* >::iterator walls_it;
+        std::multimap<Wall::Walltype,Wall* >::iterator walls_it;
         walls_it=_walls.begin();
         walls_it->second->addMaterials(nWallShells,tempWallMaterialsName,tempWallShellsThicknesses);
 
-        _walls.insert( pair<Wall::Walltype,Wall*>(Wall::outer,new Wall(Wall::outer)) );
+        _walls.insert( std::pair<Wall::Walltype,Wall*>(Wall::outer,new Wall(Wall::outer)) );
         nWallShells    = config.getInt("cdch.nOuterWallShells");
         tempWallMaterialsName = new std::vector<std::string>();
         tempWallShellsThicknesses = new std::vector<double>();
@@ -176,7 +176,7 @@ CDCHMaker::CDCHMaker( crd::SimpleConfig const& config):
         walls_it++;
         walls_it->second->addMaterials(nWallShells,tempWallMaterialsName,tempWallShellsThicknesses);
 
-        _walls.insert( pair<Wall::Walltype,Wall*>(Wall::endcap,new Wall(Wall::endcap)) );
+        _walls.insert( std::pair<Wall::Walltype,Wall*>(Wall::endcap,new Wall(Wall::endcap)) );
         nWallShells    = config.getInt("cdch.nEndCapWallShells");
         tempWallMaterialsName = new std::vector<std::string>();
         tempWallShellsThicknesses = new std::vector<double>();
@@ -199,7 +199,7 @@ CDCHMaker::~CDCHMaker (){}
 
 void CDCHMaker::Build(){
 
-        _ltt = unique_ptr<CDCHtracker>(new CDCHtracker());
+        _ltt = std::unique_ptr<CDCHtracker>(new CDCHtracker());
         _ltt->_isExternal = _isExternal;
         _ltt->_geomType=_geomType;
 
@@ -358,7 +358,7 @@ void CDCHMaker::Build(){
                 Wall *tmpEndCapWall_L = new Wall(*tmpEndCapWall);
                 tmpEndCapWall_L->_name               = "EndCapWall_L";
                 tmpEndCapWall_L->_pos                = HepGeom::RotateY3D(180.0*CLHEP::degree)*tmpEndCapWall_L->_pos;
-                _walls.insert( pair<Wall::Walltype,Wall*>(tmpEndCapWall_L->getType(), tmpEndCapWall_L) );
+                _walls.insert( std::pair<Wall::Walltype,Wall*>(tmpEndCapWall_L->getType(), tmpEndCapWall_L) );
 
                 _ltt->_max_EndCap_dim = max_EndCap_dim;
 
@@ -419,7 +419,7 @@ void CDCHMaker::Build(){
                         }
 
                         for ( superlayer=0;superlayer<nsuperlayer/*2*/;superlayer++ ) {
-                                cout <<"Building super layer: "<<superlayer+1<<endl;
+                                std::cout <<"Building super layer: "<<superlayer+1<<std::endl;
 
                                 _sprlr[superlayer]._id = SuperLayerId(superlayer);
 
@@ -1685,12 +1685,12 @@ void CDCHMaker::Build(){
                 _ltt->_sprlr.reset(_sprlr);
 
                 double constrainR = outer_radius;
-                cout<<"rIn "<<radius_ringIn<<" drop "<<drop<<" OR "<<outer_radius;
+                std::cout<<"rIn "<<radius_ringIn<<" drop "<<drop<<" OR "<<outer_radius;
                 if (_detailedWireSupport && _isElectCont ) {
-                        cout<<" Othk "<<_elctContWallThick<<endl;
+                        std::cout<<" Othk "<<_elctContWallThick<<std::endl;
                         constrainR -= _elctContWallThick;
                 } else {
-                        cout<<" Othk "<<envelop_Outer_thickness<<endl;
+                        std::cout<<" Othk "<<envelop_Outer_thickness<<std::endl;
                         constrainR -= envelop_Outer_thickness;
                 }
                 if ( (radius_ringIn_0+drop) > constrainR ) {
@@ -1700,7 +1700,7 @@ void CDCHMaker::Build(){
                   e.error();
                 }
 
-                multimap<Wall::Walltype,Wall* >::iterator walls_it;
+                std::multimap<Wall::Walltype,Wall* >::iterator walls_it;
                 for ( walls_it=_walls.begin() ; walls_it != _walls.end(); walls_it++ ) {
                         _ltt->addWall(walls_it->second);
                 }
