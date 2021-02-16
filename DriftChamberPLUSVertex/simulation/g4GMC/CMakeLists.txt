@@ -52,13 +52,13 @@ include_directories(${PROJECT_SOURCE_DIR}/include
                     ${PROJECT_SOURCE_DIR}/EXCEP/include
                     ${PROJECT_SOURCE_DIR}/CDCH/include)
 
-file(GLOB sources ${PROJECT_SOURCE_DIR}/src/*.cc
-	  	  ${PROJECT_SOURCE_DIR}/../ConfigReader/src/*.cc
-		  ${PROJECT_SOURCE_DIR}/PSHW/src/*.cc
-                  ${PROJECT_SOURCE_DIR}/SVX/src/*.cc
-                  ${PROJECT_SOURCE_DIR}/EXCEP/src/*.cc
-                  ${PROJECT_SOURCE_DIR}/GEOMSRVC/src/*.cc
-                  ${PROJECT_SOURCE_DIR}/CDCH/src/*.cc)
+file(GLOB sources ${PROJECT_SOURCE_DIR}/src/*.cc)
+#	  	  ${PROJECT_SOURCE_DIR}/../ConfigReader/src/*.cc
+#	 	  ${PROJECT_SOURCE_DIR}/PSHW/src/*.cc
+#                 ${PROJECT_SOURCE_DIR}/SVX/src/*.cc
+#                 ${PROJECT_SOURCE_DIR}/EXCEP/src/*.cc
+#                 ${PROJECT_SOURCE_DIR}/GEOMSRVC/src/*.cc
+#                 ${PROJECT_SOURCE_DIR}/CDCH/src/*.cc)
 
 file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hh
                   ${PROJECT_SOURCE_DIR}/../ConfigReader/include
@@ -69,28 +69,38 @@ file(GLOB headers ${PROJECT_SOURCE_DIR}/include/*.hh
                   ${PROJECT_SOURCE_DIR}/CDCH/include/*.hh)
 
 #------------------
+# dictionary
+ROOT_GENERATE_DICTIONARY(ClassesDict GMCG4Classes.hh LINKDEF ${PROJECT_SOURCE_DIR}/GEOMSRVC/src/LinkDef.hh)
+add_library(GMCG4ClassesDict SHARED
+            ${PROJECT_SOURCE_DIR}/GEOMSRVC/src/GMCG4TrackerHit.cc
+	    ${PROJECT_SOURCE_DIR}/GEOMSRVC/src/GMCG4Particle.cc
+	    ${PROJECT_SOURCE_DIR}/GEOMSRVC/include/GMCG4Classes.hh
+	    ClassesDict.cxx)
+
+#------------------
 # add subdirectories
-add_subdirectory(../ConfigReader ${CMAKE_CURRENT_BINARY_DIR}/bin)
-add_subdirectory(CDCH)
+add_subdirectory(../ConfigReader ${CMAKE_CURRENT_BINARY_DIR}/ConfigReader)
 add_subdirectory(PSHW)
 add_subdirectory(SVX)
 add_subdirectory(EXCEP)
 add_subdirectory(GEOMSRVC)
+add_subdirectory(CDCH)
 
 #----------------------------------------------------------------------------
 # Add the executable, and link it to the Geant4 libraries
 #
-add_executable(g4GMC g4GMC.cc ${sources} ${headers})
-target_link_libraries(g4GMC PUBLIC
-	              ${PROJECT_SOURCE_DIR}/lib/libGMCG4ClassesDict.so
-		      ${Geant4_LIBRARIES}
-                      ${HEPMC_LIBRARIES}
-		      ${HEPMC_FIO_LIBRARIES}
-                      ${PYTHIA6_LIBRARIES}
-		      ${ROOT_LIBRARIES}
-		      gfortran
-		      EDM4HEP::edm4hep
-		      podio::podioRootIO)
+#add_executable(g4GMC g4GMC.cc ${sources} ${headers})
+
+#target_link_libraries(g4GMC PUBLIC
+#		      ${Geant4_LIBRARIES}
+#                     ${HEPMC_LIBRARIES}
+#		      ${HEPMC_FIO_LIBRARIES}
+#                     ${PYTHIA6_LIBRARIES}
+#		      ${ROOT_LIBRARIES}
+#		      gfortran
+#		      EDM4HEP::edm4hep
+#		      podio::podioRootIO)
+#	              ${PROJECT_SOURCE_DIR}/lib/libGMCG4ClassesDict.so
 
 #----------------------------------------------------------------------------
 # Copy all scripts to the build directory, i.e. the directory in which we
